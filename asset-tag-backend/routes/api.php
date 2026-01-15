@@ -23,4 +23,4 @@ Route::apiResource('categories', CategoryController::class);
 
 Route::apiResource('companies', CompanyController::class);
 
-// Creating Asset
+Route::apiResource('assets', AssetController::class);

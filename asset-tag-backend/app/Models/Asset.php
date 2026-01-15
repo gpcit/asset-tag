@@ -19,12 +19,18 @@ class Asset extends Model
         'specifications',
         'date_deployed',
         'category_id',
+        'company_id',
         'remarks', 
     ];
 
-    // Define the relationship to Category
+    // Define the relationship to Companies
+    public function company()
+    {
+        return $this->belongsTo(Companies::class, 'company_id');
+    }
+
     public function category()
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Category::class, 'category_id');
     }
 }

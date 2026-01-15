@@ -3,6 +3,7 @@ import LoginPage from '@/views/LoginPage.vue'
 import SignupPage from '@/views/SignupPage.vue'
 import DashBoard from '@/views/DashBoard.vue';
 import NavBar from '@/components/NavBar.vue';
+import AssetTag from '@/views/AssetTag.vue';
 const routes = [
   {
     path: '/',           // default path
@@ -24,6 +25,12 @@ const routes = [
     path: '/navbar',
     name: 'NavBar',
     component: NavBar
+  },
+
+  {
+    path: '/asset',
+    name: 'Asset',
+    component: AssetTag
   }
 ]
 

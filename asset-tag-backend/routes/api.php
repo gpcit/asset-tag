@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CompanyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -14,3 +17,10 @@ Route::post('/register', [AuthController::class, 'register']);
 
 // User login
 Route::post('/login', [AuthController::class, 'login']);
+
+
+Route::apiResource('categories', CategoryController::class);
+
+Route::apiResource('companies', CompanyController::class);
+
+// Creating Asset

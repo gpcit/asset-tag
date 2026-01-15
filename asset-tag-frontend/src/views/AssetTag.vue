@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { ref, onMounted, getCurrentInstance } from 'vue'
 
 /* ───────── Types ───────── */
 interface Category {
@@ -40,15 +39,29 @@ const emptyForm = () => ({
 
 const form = ref(emptyForm())
 
-/* ───────── API ───────── */
+/* ───────── Global $api ───────── */
+const internalInstance = getCurrentInstance()
+const $api = internalInstance?.appContext.config.globalProperties.$api
+
+/* ───────── API Calls ───────── */
 const fetchCategories = async () => {
-  const { data } = await axios.get('http://127.0.0.1:8000/api/categories')
-  categories.value = data
+  if (!$api) return
+  try {
+    const { data } = await $api.get('/categories')
+    categories.value = data
+  } catch (err) {
+    console.error('Failed to fetch categories:', err)
+  }
 }
 
 const fetchCompanies = async () => {
-  const { data } = await axios.get('http://127.0.0.1:8000/api/companies')
-  companies.value = data
+  if (!$api) return
+  try {
+    const { data } = await $api.get('/companies')
+    companies.value = data
+  } catch (err) {
+    console.error('Failed to fetch companies:', err)
+  }
 }
 
 onMounted(() => {
@@ -68,10 +81,17 @@ const openCreateModal = () => {
 }
 
 const submitForm = async () => {
-  await axios.post('http://127.0.0.1:8000/api/assets', form.value)
-  showCreateModal.value = false
+  if (!$api) return
+  try {
+    const { data } = await $api.post('/assets', form.value)
+    console.log('Asset created:', data)
+    showCreateModal.value = false
+  } catch (err) {
+    console.error('Failed to create asset:', err)
+  }
 }
 </script>
+
 
 <template>
   <NavBar />

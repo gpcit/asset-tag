@@ -24,3 +24,5 @@ Route::apiResource('categories', CategoryController::class);
 Route::apiResource('companies', CompanyController::class);
 
 Route::apiResource('assets', AssetController::class);
+
+Route::get('/dashboard/summary', [AssetController::class, 'summary']);

@@ -68,4 +68,34 @@ class AssetController extends Controller
         $asset->delete(); // this will soft delete
         return response()->json(null, 204);
     }
+
+    // Dashboard
+     public function summary()
+    {
+        $totalAssets = Asset::count();
+        $totalCost = Asset::sum('cost');
+
+        // Group by company
+        $byCompany = Asset::with(['company', 'category'])
+            ->get()
+            ->groupBy('company_id')
+            ->map(function ($items, $companyId) {
+                $companyName = $items->first()->company?->name ?? 'Unknown';
+                $totalCost = $items->sum('cost');
+                $categories = $items->pluck('category.name')->unique()->implode(', ');
+                return [
+                    'company' => $companyName,
+                    'asset_count' => $items->count(),
+                    'total_cost' => $totalCost,
+                    'categories' => $categories,
+                ];
+            })
+            ->values(); // reindex array
+
+        return response()->json([
+            'totalAssets' => $totalAssets,
+            'totalCost' => $totalCost,
+            'byCompany' => $byCompany,
+        ]);
+    }
 }

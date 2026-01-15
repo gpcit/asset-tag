@@ -4,7 +4,7 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import Swal from 'sweetalert2'
 
-/* ───────── Types ───────── */
+/*  Types  */
 interface Category { id: number; name: string }
 interface Company { id: number; name: string }
 
@@ -41,7 +41,7 @@ interface Asset {
   category?: Category
 }
 
-/* ───────── State ───────── */
+/*  State  */
 const showCreateModal = ref(false)
 const isEditing = ref(false)
 const editingAssetId = ref<number | null>(null)
@@ -70,7 +70,7 @@ const emptyForm = (): AssetForm => ({
 
 const form = ref<AssetForm>(emptyForm())
 
-/* ───────── Computed ───────── */
+/*  Computed  */
 const filteredAssets = computed(() => {
   return assets.value.filter(asset => {
     const matchesCategory =
@@ -81,7 +81,7 @@ const filteredAssets = computed(() => {
   })
 })
 
-/* ───────── Fetch Data ───────── */
+/*  Fetch Data  */
 const fetchCategories = async () => {
   const { data } = await api.get('/categories')
   categories.value = data
@@ -103,7 +103,7 @@ onMounted(() => {
   fetchCompanies()
 })
 
-/* ───────── Actions ───────── */
+/*  Actions  */
 const resetFilters = () => {
   selectedCategory.value = ''
   selectedCompany.value = ''
@@ -127,7 +127,7 @@ const openEditModal = (asset: Asset) => {
     cost: asset.cost,
     supplier: asset.supplier,
     modelNumber: asset.model_number,
-    specification: asset.specifications, // <-- mapping fixed
+    specification: asset.specifications, 
     remarks: asset.remarks,
     dateDeployed: asset.date_deployed,
     categoryId: asset.category_id,
@@ -144,7 +144,7 @@ const mapFormToPayload = (form: AssetForm) => ({
   cost: form.cost,
   supplier: form.supplier,
   model_number: form.modelNumber,
-  specifications: form.specification, // <-- mapping to backend
+  specifications: form.specification, 
   remarks: form.remarks,
   date_deployed: form.dateDeployed,
   category_id: form.categoryId,
@@ -304,7 +304,7 @@ const deleteAsset = async (asset: Asset) => {
   <!-- Main Table -->
   <div class="flex-1 overflow-x-auto border border-gray-200 rounded shadow-sm">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
-      <thead class="bg-emerald-600 text-white">
+      <thead class="bg-emerald-900 text-white">
         <tr>
           <th class="px-3 py-1 font-semibold w-32">Person In-charge</th>
           <th class="px-3 py-1 font-semibold w-24">Department</th>
@@ -317,7 +317,7 @@ const deleteAsset = async (asset: Asset) => {
           <th class="px-3 py-1 font-semibold w-20">Model #</th>
           <th class="px-3 py-1 font-semibold w-24">Supplier</th>
           <th class="px-3 py-1 font-semibold w-32">Specification</th>
-          <th class="px-3 py-1 font-semibold w-32">Remarks</th>
+          <!-- <th class="px-3 py-1 font-semibold w-32">Remarks</th> -->
           <th class="px-3 py-1 font-semibold w-20 text-center">Actions</th>
         </tr>
       </thead>
@@ -334,11 +334,11 @@ const deleteAsset = async (asset: Asset) => {
           <td class="px-3 py-1 break-words uppercase">{{ asset.model_number || '-' }}</td>
           <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
           <td class="px-3 py-1 break-words uppercase">{{ asset.specifications || '-' }}</td>
-          <td class="px-3 py-1 break-words uppercase">{{ asset.remarks || '-' }}</td>
-          <td class="px-3 py-1 text-center whitespace-nowrap flex justify-center gap-1">
+          <!-- <td class="px-3 py-1 break-words uppercase">{{ asset.remarks || '-' }}</td> -->
+          <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
             <button
               @click="openEditModal(asset)"
-              class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium"
+              class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3"
               title="Edit"
             >✏️ Edit</button>
             <button

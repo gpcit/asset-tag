@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import Swal from 'sweetalert2'
 
+/* ───────── Types ───────── */
 interface Category { id: number; name: string }
 interface Company { id: number; name: string }
 
@@ -15,7 +16,6 @@ interface AssetForm {
   cost?: number
   supplier?: string
   modelNumber?: string
-  assetInfo?: string
   specification?: string
   remarks?: string
   dateDeployed?: string
@@ -32,7 +32,6 @@ interface Asset {
   cost?: number
   supplier?: string
   model_number?: string
-  asset_info?: string
   specifications?: string
   remarks?: string
   date_deployed?: string
@@ -42,7 +41,8 @@ interface Asset {
   category?: Category
 }
 
-const showModal = ref(false)
+/* ───────── State ───────── */
+const showCreateModal = ref(false)
 const isEditing = ref(false)
 const editingAssetId = ref<number | null>(null)
 
@@ -61,7 +61,6 @@ const emptyForm = (): AssetForm => ({
   cost: undefined,
   supplier: '',
   modelNumber: '',
-  assetInfo: '',
   specification: '',
   remarks: '',
   dateDeployed: '',
@@ -70,6 +69,17 @@ const emptyForm = (): AssetForm => ({
 })
 
 const form = ref<AssetForm>(emptyForm())
+
+/* ───────── Computed ───────── */
+const filteredAssets = computed(() => {
+  return assets.value.filter(asset => {
+    const matchesCategory =
+      selectedCategory.value === '' || asset.category_id === selectedCategory.value
+    const matchesCompany =
+      selectedCompany.value === '' || asset.company_id === selectedCompany.value
+    return matchesCategory && matchesCompany
+  })
+})
 
 /* ───────── Fetch Data ───────── */
 const fetchCategories = async () => {
@@ -103,7 +113,7 @@ const openCreateModal = () => {
   isEditing.value = false
   editingAssetId.value = null
   form.value = emptyForm()
-  showModal.value = true
+  showCreateModal.value = true
 }
 
 const openEditModal = (asset: Asset) => {
@@ -117,20 +127,77 @@ const openEditModal = (asset: Asset) => {
     cost: asset.cost,
     supplier: asset.supplier,
     modelNumber: asset.model_number,
-    assetInfo: asset.asset_info,
-    specification: asset.specifications,
+    specification: asset.specifications, // <-- mapping fixed
     remarks: asset.remarks,
     dateDeployed: asset.date_deployed,
     categoryId: asset.category_id,
     companyId: asset.company_id,
   }
-  showModal.value = true
+  showCreateModal.value = true
 }
 
-const submitForm = async () => {
-  try {
-    const payload = { ...form.value }
+const mapFormToPayload = (form: AssetForm) => ({
+  person_in_charge: form.personInCharge,
+  department: form.department,
+  invoice_number: form.invoiceNumber,
+  invoice_date: form.invoiceDate,
+  cost: form.cost,
+  supplier: form.supplier,
+  model_number: form.modelNumber,
+  specifications: form.specification, // <-- mapping to backend
+  remarks: form.remarks,
+  date_deployed: form.dateDeployed,
+  category_id: form.categoryId,
+  company_id: form.companyId,
+})
 
+const submitForm = async () => {
+  
+  if (!form.value.personInCharge?.trim()) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Missing Field',
+      text: 'Person In-charge is required.',
+    })
+    return
+  }
+
+  if (!form.value.companyId) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Missing Field',
+      text: 'Please select a Company.',
+    })
+    return
+  }
+
+  if (!form.value.categoryId) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Missing Field',
+      text: 'Please select a Category.',
+    })
+    return
+  }
+
+  try {
+    
+    const payload = {
+      personInCharge: form.value.personInCharge,
+      department: form.value.department,
+      invoiceNumber: form.value.invoiceNumber,
+      invoiceDate: form.value.invoiceDate,
+      cost: form.value.cost,
+      supplier: form.value.supplier,
+      modelNumber: form.value.modelNumber,
+      specifications: form.value.specification,
+      remarks: form.value.remarks,
+      dateDeployed: form.value.dateDeployed,
+      categoryId: form.value.categoryId,
+      companyId: form.value.companyId,
+    }
+
+    
     if (isEditing.value && editingAssetId.value) {
       await api.put(`/assets/${editingAssetId.value}`, payload)
       Swal.fire({
@@ -151,15 +218,33 @@ const submitForm = async () => {
       })
     }
 
-    showModal.value = false
+    
+    showCreateModal.value = false
     form.value = emptyForm()
     isEditing.value = false
     editingAssetId.value = null
     await fetchAssets()
-  } catch (err) {
+
+  } catch (err: any) {
     console.error('Failed to submit asset', err)
-    Swal.fire('Error', 'Failed to submit asset', 'error')
+
+    if (err.response?.data?.errors) {
+      const messages = Object.values(err.response.data.errors).flat().join('\n')
+      Swal.fire({
+        icon: 'error',
+        title: 'Validation Error',
+        text: messages,
+      })
+      return
+    }
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Oops...',
+      text: 'Failed to submit asset. Please try again.',
+    })
   }
+
 }
 
 const deleteAsset = async (asset: Asset) => {
@@ -187,10 +272,11 @@ const deleteAsset = async (asset: Asset) => {
 <template>
   <NavBar />
 
-  <!-- Sidebar / Filter Panel -->
+  <!-- Sidebar / Filters -->
   <div class="fixed top-20 left-6 w-80 p-6 bg-white shadow-xl rounded-xl">
     <h3 class="text-lg font-semibold mb-2">Filter Assets</h3>
 
+    <!-- Category -->
     <div class="mb-4">
       <label class="block text-sm font-medium mb-1">Category</label>
       <select v-model="selectedCategory" class="w-full border rounded px-3 py-2">
@@ -199,6 +285,7 @@ const deleteAsset = async (asset: Asset) => {
       </select>
     </div>
 
+    <!-- Company -->
     <div class="mb-4">
       <label class="block text-sm font-medium mb-1">Company</label>
       <select v-model="selectedCompany" class="w-full border rounded px-3 py-2">
@@ -213,75 +300,100 @@ const deleteAsset = async (asset: Asset) => {
     </div>
   </div>
 
-  <!-- Main Content -->
-  <div class="ml-96 p-8 pt-24">
-    <table class="min-w-full border-collapse border border-gray-300">
-      <thead>
+  <!-- Main Table -->
+  <div class="ml-96 p-4 pt-20">
+  <div class="overflow-x-auto border border-gray-200 rounded shadow-sm">
+    <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <thead class="bg-emerald-600 text-white">
         <tr>
-          <th class="border border-gray-300 px-3 py-1">Person In-charge</th>
-          <th class="border border-gray-300 px-3 py-1">Department</th>
-          <th class="border border-gray-300 px-3 py-1">Invoice #</th>
-          <th class="border border-gray-300 px-3 py-1">Cost</th>
-          <th class="border border-gray-300 px-3 py-1">Company</th>
-          <th class="border border-gray-300 px-3 py-1">Category</th>
-          <th class="border border-gray-300 px-3 py-1">Date Deployed</th>
-          <th class="border border-gray-300 px-3 py-1">Actions</th>
+          <th class="px-3 py-1 font-semibold w-32">Person In-charge</th>
+          <th class="px-3 py-1 font-semibold w-24">Department</th>
+          <th class="px-3 py-1 font-semibold w-20">Invoice #</th>
+          <th class="px-3 py-1 font-semibold w-16">Cost</th>
+          <th class="px-3 py-1 font-semibold w-24">Company</th>
+          <th class="px-3 py-1 font-semibold w-24">Category</th>
+          <th class="px-3 py-1 font-semibold w-20">Date Deployed</th>
+          <th class="px-3 py-1 font-semibold w-20">Model #</th>
+          <th class="px-3 py-1 font-semibold w-24">Supplier</th>
+          <th class="px-3 py-1 font-semibold w-32">Specification</th>
+          <th class="px-3 py-1 font-semibold w-32">Remarks</th>
+          <th class="px-3 py-1 font-semibold w-20 text-center">Actions</th>
         </tr>
       </thead>
-      <tbody>
-        <tr v-for="asset in assets" :key="asset.id" class="hover:bg-gray-100">
-          <td class="border border-gray-300 px-3 py-1">{{ asset.person_in_charge }}</td>
-          <td class="border border-gray-300 px-3 py-1">{{ asset.department }}</td>
-          <td class="border border-gray-300 px-3 py-1">{{ asset.invoice_number || '-' }}</td>
-          <td class="border border-gray-300 px-3 py-1">{{ asset.cost ?? '-' }}</td>
-          <td class="border border-gray-300 px-3 py-1">{{ asset.company?.name || '-' }}</td>
-          <td class="border border-gray-300 px-3 py-1">{{ asset.category?.name || '-' }}</td>
-          <td class="border border-gray-300 px-3 py-1">{{ asset.date_deployed || '-' }}</td>
-          <td class="border border-gray-300 px-3 py-1">
-            <button @click="openEditModal(asset)" class="text-blue-600 mr-2">Edit</button>
-            <button @click="deleteAsset(asset)" class="text-red-600">Delete</button>
+      <tbody class="bg-white divide-y divide-gray-200">
+        <tr v-for="asset in filteredAssets" :key="asset.id" class="hover:bg-emerald-50">
+          <td class="px-3 py-1 break-words">{{ asset.person_in_charge }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.department }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.invoice_number || '-' }}</td>
+          <td class="px-3 py-1 whitespace-nowrap">{{ asset.cost ?? '-' }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.company?.name || '-' }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.category?.name || '-' }}</td>
+          <td class="px-3 py-1 whitespace-nowrap">{{ asset.date_deployed || '-' }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.model_number || '-' }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.supplier || '-' }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.specifications || '-' }}</td>
+          <td class="px-3 py-1 break-words">{{ asset.remarks || '-' }}</td>
+          <td class="px-3 py-1 text-center whitespace-nowrap flex justify-center gap-1">
+            <button
+              @click="openEditModal(asset)"
+              class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium"
+              title="Edit"
+            >✏️ Edit</button>
+            <button
+              @click="deleteAsset(asset)"
+              class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium"
+              title="Delete"
+            >🗑️ Delete</button>
           </td>
         </tr>
       </tbody>
     </table>
-
-    <p v-if="assets.length === 0" class="text-center text-gray-500 mt-4">No assets found.</p>
+    <p v-if="filteredAssets.length === 0" class="text-center text-gray-500 mt-2 py-2">No assets found.</p>
   </div>
+</div>
 
   <!-- Create/Edit Modal -->
-  <div v-if="showModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showModal = false">
+  <div v-if="showCreateModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showCreateModal = false">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-bold mb-3">{{ isEditing ? 'Edit Asset' : 'Create New Asset' }}</h2>
 
+      <!-- Form -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label class="block text-sm font-medium mb-1">Person In-charge</label>
           <input v-model="form.personInCharge" type="text" class="w-full border rounded px-2 py-1 text-sm" />
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Department</label>
           <input v-model="form.department" type="text" class="w-full border rounded px-2 py-1 text-sm" />
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Invoice Number</label>
           <input v-model="form.invoiceNumber" type="text" class="w-full border rounded px-2 py-1 text-sm" />
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Invoice Date</label>
           <input v-model="form.invoiceDate" type="date" class="w-full border rounded px-2 py-1 text-sm" />
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Cost</label>
           <input v-model.number="form.cost" type="number" step="0.01" class="w-full border rounded px-2 py-1 text-sm" />
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Supplier</label>
           <input v-model="form.supplier" type="text" class="w-full border rounded px-2 py-1 text-sm" />
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Model Number</label>
           <input v-model="form.modelNumber" type="text" class="w-full border rounded px-2 py-1 text-sm" />
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Company</label>
           <select v-model="form.companyId" class="w-full border rounded px-2 py-1 text-sm">
@@ -289,17 +401,13 @@ const deleteAsset = async (asset: Asset) => {
             <option v-for="comp in companies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
           </select>
         </div>
+
         <div>
           <label class="block text-sm font-medium mb-1">Category</label>
           <select v-model="form.categoryId" class="w-full border rounded px-2 py-1 text-sm">
             <option value="">Select Category</option>
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
-        </div>
-
-        <div class="col-span-1 md:col-span-2">
-          <label class="block text-sm font-medium mb-1">Asset Info</label>
-          <textarea v-model="form.assetInfo" class="w-full border rounded px-2 py-1 text-sm resize-y" rows="3"></textarea>
         </div>
 
         <div class="col-span-1 md:col-span-2">
@@ -318,8 +426,9 @@ const deleteAsset = async (asset: Asset) => {
         </div>
       </div>
 
+      <!-- Buttons -->
       <div class="flex justify-end gap-2 mt-4">
-        <button @click="showModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Cancel</button>
+        <button @click="showCreateModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Cancel</button>
         <button @click="submitForm" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">Submit</button>
       </div>
     </div>

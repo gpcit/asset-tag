@@ -65,7 +65,7 @@ class AssetController extends Controller
 
     public function destroy(Asset $asset)
     {
-        $asset->delete();
+        $asset->delete(); // this will soft delete
         return response()->json(null, 204);
     }
 }

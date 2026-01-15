@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-
+use Illuminate\Database\Eloquent\SoftDeletes;
 class Asset extends Model
 {
     // Specify which fields can be mass-assigned
+
+    use SoftDeletes;
     protected $fillable = [
         'person_in_charge',
         'department',
@@ -23,6 +25,8 @@ class Asset extends Model
         'remarks', 
     ];
 
+    protected $dates = ['deleted_at'];
+    
     // Define the relationship to Companies
     public function company()
     {

@@ -272,8 +272,9 @@ const deleteAsset = async (asset: Asset) => {
 <template>
   <NavBar />
 
+  <div class="flex gap-6 p-4 pt-20 items-start">
   <!-- Sidebar / Filters -->
-  <div class="fixed top-20 left-6 w-80 p-6 bg-white shadow-xl rounded-xl">
+ <div class="w-80 p-6 bg-white shadow-xl rounded-xl flex-shrink-0">
     <h3 class="text-lg font-semibold mb-2">Filter Assets</h3>
 
     <!-- Category -->
@@ -301,14 +302,14 @@ const deleteAsset = async (asset: Asset) => {
   </div>
 
   <!-- Main Table -->
-  <div class="ml-96 p-4 pt-20">
-  <div class="overflow-x-auto border border-gray-200 rounded shadow-sm">
+  <div class="flex-1 overflow-x-auto border border-gray-200 rounded shadow-sm">
     <table class="min-w-full divide-y divide-gray-200 text-sm">
       <thead class="bg-emerald-600 text-white">
         <tr>
           <th class="px-3 py-1 font-semibold w-32">Person In-charge</th>
           <th class="px-3 py-1 font-semibold w-24">Department</th>
           <th class="px-3 py-1 font-semibold w-20">Invoice #</th>
+          <th class="px-3 py-1 font-semibold w-20">Invoice Date</th>
           <th class="px-3 py-1 font-semibold w-16">Cost</th>
           <th class="px-3 py-1 font-semibold w-24">Company</th>
           <th class="px-3 py-1 font-semibold w-24">Category</th>
@@ -322,17 +323,18 @@ const deleteAsset = async (asset: Asset) => {
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
         <tr v-for="asset in filteredAssets" :key="asset.id" class="hover:bg-emerald-50">
-          <td class="px-3 py-1 break-words">{{ asset.person_in_charge }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.department }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.invoice_number || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.person_in_charge }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.department }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_number || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_date || '-' }}</td>
           <td class="px-3 py-1 whitespace-nowrap">{{ asset.cost ?? '-' }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.company?.name || '-' }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.category?.name || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.company?.name || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.category?.name || '-' }}</td>
           <td class="px-3 py-1 whitespace-nowrap">{{ asset.date_deployed || '-' }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.model_number || '-' }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.supplier || '-' }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.specifications || '-' }}</td>
-          <td class="px-3 py-1 break-words">{{ asset.remarks || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.model_number || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.specifications || '-' }}</td>
+          <td class="px-3 py-1 break-words uppercase">{{ asset.remarks || '-' }}</td>
           <td class="px-3 py-1 text-center whitespace-nowrap flex justify-center gap-1">
             <button
               @click="openEditModal(asset)"
@@ -351,6 +353,7 @@ const deleteAsset = async (asset: Asset) => {
     <p v-if="filteredAssets.length === 0" class="text-center text-gray-500 mt-2 py-2">No assets found.</p>
   </div>
 </div>
+
 
   <!-- Create/Edit Modal -->
   <div v-if="showCreateModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showCreateModal = false">

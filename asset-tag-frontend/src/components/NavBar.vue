@@ -10,6 +10,9 @@ import {
 } from '@headlessui/vue'
 import { Bars3Icon, BellIcon, XMarkIcon } from '@heroicons/vue/24/outline'
 import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const navigation = [
   { name: 'Dashboard', to: '/dashboard' },
@@ -17,6 +20,13 @@ const navigation = [
   { name: 'Projects', to: '/projects' },
   { name: 'Calendar', to: '/calendar' },
 ]
+
+const logout = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  router.replace('/')
+}
+
 </script>
 
 <template>
@@ -124,15 +134,16 @@ const navigation = [
                   </a>
                 </MenuItem>
                 <MenuItem v-slot="{ active }">
-                  <a
-                    href="#"
+                  <button
+                    @click="logout"
+                    type="button"
                     :class="[
                       active ? 'bg-gray-100' : '',
-                      'block px-4 py-2 text-sm text-gray-700'
+                      'block w-full px-4 py-2 text-left text-sm text-gray-700'
                     ]"
                   >
                     Sign out
-                  </a>
+                  </button>
                 </MenuItem>
               </MenuItems>
             </transition>

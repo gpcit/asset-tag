@@ -27,7 +27,7 @@ class Asset extends Model
 
     protected $dates = ['deleted_at'];
     
-    // Define the relationship to Companies
+    // relationships
     public function company()
     {
         return $this->belongsTo(Companies::class, 'company_id');

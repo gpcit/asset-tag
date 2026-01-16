@@ -1,46 +1,50 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { login as loginService } from '@/services/auth';
-import Swal from 'sweetalert2';
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import Swal from 'sweetalert2'
+import { login as loginService } from '@/services/auth'
+import { useUserStore } from '@/stores/user'
 
-const router = useRouter();
+const router = useRouter()
+const userStore = useUserStore()
 
-const email = ref('');
-const password = ref('');
-const loading = ref(false);
+const email = ref('')
+const password = ref('')
+const loading = ref(false)
 
 const login = async () => {
-  loading.value = true;
+  loading.value = true
 
   try {
-    const data = await loginService(email.value, password.value);
+    const data = await loginService(email.value, password.value)
 
-    // Save token & user info
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    // Save token & user in localStorage
+    localStorage.setItem('token', data.token)
+    localStorage.setItem('user', JSON.stringify(data.user))
 
-    // Success popup
+    // Update Pinia store
+    userStore.setUser(data) // <-- send both user and token
+    await userStore.initializeData() // <-- fetch assets, companies, categories, dashboard
+
     await Swal.fire({
       icon: 'success',
       title: 'Login Successful!',
       text: `Welcome back, ${data.user.name || 'User'}!`,
       confirmButtonText: 'Go to Dashboard'
-    });
+    })
 
-    // Redirect to dashboard
-    router.push('/dashboard');
+    router.replace('/dashboard')
+
   } catch (err: any) {
-    // Error popup
     Swal.fire({
       icon: 'error',
       title: 'Login Failed',
       text: err.message || 'Incorrect email or password.',
-    });
+    })
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 </script>
 
 <template>

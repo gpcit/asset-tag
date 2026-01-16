@@ -4,10 +4,11 @@ import { ref, computed, watch } from 'vue'
 import Swal from 'sweetalert2'
 import { useUserStore } from '@/stores/user'
 import api from '@/services/api'
+import QRCode from 'qrcode'
 
 /*  Types  */
 interface Category { id: number; name: string }
-interface Company { id: number; name: string }
+interface Company { id: number; name: string,  logo?: string | null, code?: string; }
 
 interface AssetForm {
   personInCharge: string
@@ -40,6 +41,7 @@ interface Asset {
   company_id?: number
   company?: Company
   category?: Category
+  uniqueCode?: string
 }
 
 /*  State  */
@@ -49,6 +51,10 @@ const editingAssetId = ref<number | null>(null)
 
 const selectedCategory = ref<number | ''>('')
 const selectedCompany = ref<number | ''>('')
+
+const showTagModal = ref(false)
+const taggingAsset = ref<Asset | null>(null)
+const qrCodeDataUrl = ref<string>('')
 
 const form = ref<AssetForm>({
   personInCharge: '',
@@ -215,6 +221,57 @@ const initData = async () => {
   }
 }
 
+const openTagModal = async (asset: Asset) => {
+  showTagModal.value = true
+
+  try {
+    // Generate unique code for display
+    const companyCode = asset.company?.code ?? 'NO-CODE'
+    const uniqueNumber = asset.id.toString().padStart(6, '0')
+    const assetCode = `${companyCode}-${uniqueNumber}`
+
+    // Assign it to the taggingAsset
+    taggingAsset.value = { ...asset, uniqueCode: assetCode }
+
+    // Generate QR code content with detailed info
+    const qrText = 
+      `Category: ${asset.category?.name ?? 'No Category'}\n` +
+      `Company: ${asset.company?.name ?? 'No Company'}\n` +
+      `Person In-charge: ${asset.person_in_charge ?? 'Unknown'}`
+
+    qrCodeDataUrl.value = await QRCode.toDataURL(qrText)
+  } catch (err) {
+    console.error('QR code generation failed', err)
+    qrCodeDataUrl.value = ''
+  }
+}
+
+/* Download QR code */
+const generateTagging = () => {
+  if (!qrCodeDataUrl.value) return
+  const link = document.createElement('a')
+  link.href = qrCodeDataUrl.value
+  link.download = `${taggingAsset.value?.company?.name || 'tag'}-qr.png`
+  link.click()
+}
+
+/* Get company logo from assets/uploads folder */
+const getCompanyLogo = (company: Company) => {
+  if (!company?.logo) {
+    return new URL('../assets/uploads/placeholder.png', import.meta.url).href
+  }
+
+  try {
+    return new URL(
+      `/public/${company.logo}`,  // Use 'logo' here
+      import.meta.url
+    ).href
+  } catch (err) {
+    console.warn(`Logo not found for company ${company.name}`)
+    return new URL('../assets/uploads/placeholder.png', import.meta.url).href
+  }
+}
+
 initData()
 </script>
 
@@ -284,7 +341,8 @@ initData()
             <td class="px-3 py-1 break-words uppercase">{{ asset.specifications || '-' }}</td>
             <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
               <button @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️ Edit</button>
-              <button @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium" title="Delete">🗑️ Delete</button>
+              <button @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️ Delete</button>
+              <button @click="openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️ Tagging</button>
             </td>
           </tr>
         </tbody>
@@ -358,6 +416,33 @@ initData()
       <div class="flex justify-end gap-2 mt-4">
         <button @click="showCreateModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Cancel</button>
         <button @click="submitForm" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">Submit</button>
+      </div>
+    </div>
+  </div>
+    <!-- Tagging Modal -->
+  <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showTagModal = false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-lg font-bold mb-4">Asset Tagging</h2>
+
+      <div class="flex flex-col items-center gap-4">
+        <!-- Company Logo -->
+        <img v-if="taggingAsset?.company" :src="getCompanyLogo(taggingAsset.company)" alt="Company Logo" class="h-16 object-contain" />
+
+        <!-- Company Name -->
+        <h3 class="text-md font-semibold">{{ taggingAsset?.company?.name }}</h3>
+
+        <!-- Asset -->
+        <h4 class="text-md font-semibold">{{ taggingAsset?.uniqueCode }}</h4> <!-- kailangan mo palitan ng iba like random number -->
+
+        <!-- QR Code -->
+        <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="QR Code" class="h-32 w-32" />
+
+        <!-- Generate Tagging Button -->
+        <button @click="generateTagging" class="bg-emerald-600 text-white px-4 py-2 rounded mt-2">Generate Tagging</button>
+      </div>
+
+      <div class="flex justify-end mt-4">
+        <button @click="showTagModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Close</button>
       </div>
     </div>
   </div>

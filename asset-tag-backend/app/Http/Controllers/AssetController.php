@@ -7,75 +7,92 @@ use App\Models\Asset;
 
 class AssetController extends Controller
 {
+    /**
+     * List all assets with company and category relationships
+     */
     public function index()
     {
         return Asset::with(['company', 'category'])->get();
     }
 
-    protected function convertCamelToSnake(array $data): array
-    {
-        return collect($data)->mapWithKeys(function ($value, $key) {
-            $snakeKey = strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $key));
-            return [$snakeKey => $value];
-        })->toArray();
-    }
-
+    /**
+     * Store a new asset
+     */
     public function store(Request $request)
     {
+        // Validate snake_case payload from frontend
         $request->validate([
-            'personInCharge' => 'required|string|max:255',
+            'person_in_charge' => 'required|string|max:255',
             'department' => 'required|string|max:255',
-            'companyId' => 'required|exists:companies,id',
-            'categoryId' => 'required|exists:categories,id',
+            'company_id' => 'required|exists:companies,id',
+            'category_id' => 'required|exists:categories,id',
             'cost' => 'nullable|numeric',
-            'invoiceDate' => 'nullable|date',
-            'dateDeployed' => 'nullable|date',
+            'invoice_date' => 'nullable|date',
+            'date_deployed' => 'nullable|date',
+            'invoice_number' => 'nullable|string|max:255',
+            'model_number' => 'nullable|string|max:255',
+            'supplier' => 'nullable|string|max:255',
+            'specifications' => 'nullable|string',
+            'remarks' => 'nullable|string',
         ]);
 
-        $data = $this->convertCamelToSnake($request->all());
-
-        $asset = Asset::create($data);
+        // Create the asset
+        $asset = Asset::create($request->all());
 
         return response()->json($asset, 201);
     }
 
+    /**
+     * Show a single asset with relationships
+     */
     public function show(Asset $asset)
     {
         return $asset->load('company', 'category');
     }
 
+    /**
+     * Update an asset
+     */
     public function update(Request $request, Asset $asset)
     {
         $request->validate([
-            'personInCharge' => 'required|string|max:255',
+            'person_in_charge' => 'required|string|max:255',
             'department' => 'required|string|max:255',
-            'companyId' => 'required|exists:companies,id',
-            'categoryId' => 'required|exists:categories,id',
+            'company_id' => 'required|exists:companies,id',
+            'category_id' => 'required|exists:categories,id',
             'cost' => 'nullable|numeric',
-            'invoiceDate' => 'nullable|date',
-            'dateDeployed' => 'nullable|date',
+            'invoice_date' => 'nullable|date',
+            'date_deployed' => 'nullable|date',
+            'invoice_number' => 'nullable|string|max:255',
+            'model_number' => 'nullable|string|max:255',
+            'supplier' => 'nullable|string|max:255',
+            'specifications' => 'nullable|string',
+            'remarks' => 'nullable|string',
         ]);
 
-        $data = $this->convertCamelToSnake($request->all());
-
-        $asset->update($data);
+        $asset->update($request->all());
 
         return response()->json($asset);
     }
 
+    /**
+     * Delete an asset (soft delete if model uses SoftDeletes)
+     */
     public function destroy(Asset $asset)
     {
-        $asset->delete(); // this will soft delete
+        $asset->delete();
         return response()->json(null, 204);
     }
 
-    // Dashboard
-     public function summary()
+    /**
+     * Dashboard summary
+     */
+    public function summary()
     {
         $totalAssets = Asset::count();
         $totalCost = Asset::sum('cost');
 
-        // Group by company
+        // Group assets by company
         $byCompany = Asset::with(['company', 'category'])
             ->get()
             ->groupBy('company_id')

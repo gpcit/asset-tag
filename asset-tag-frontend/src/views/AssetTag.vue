@@ -5,6 +5,7 @@ import Swal from 'sweetalert2'
 import { useUserStore } from '@/stores/user'
 import api from '@/services/api'
 import QRCode from 'qrcode'
+import html2canvas from 'html2canvas'
 
 /*  Types  */
 interface Category { id: number; name: string }
@@ -55,6 +56,7 @@ const selectedCompany = ref<number | ''>('')
 const showTagModal = ref(false)
 const taggingAsset = ref<Asset | null>(null)
 const qrCodeDataUrl = ref<string>('')
+const captureRef = ref<HTMLElement | null>(null)
 
 const form = ref<AssetForm>({
   personInCharge: '',
@@ -247,13 +249,31 @@ const openTagModal = async (asset: Asset) => {
 }
 
 /* Download QR code */
-const generateTagging = () => {
-  if (!qrCodeDataUrl.value) return
-  const link = document.createElement('a')
-  link.href = qrCodeDataUrl.value
-  link.download = `${taggingAsset.value?.company?.name || 'tag'}-qr.png`
-  link.click()
+const downloadImage = async () => {
+  if (!captureRef.value || !taggingAsset.value?.company?.code) return
+
+  try {
+    const canvas = await html2canvas(captureRef.value, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+    })
+
+    const dataUrl = canvas.toDataURL('image/png')
+
+    const link = document.createElement('a')
+    link.href = dataUrl
+
+    // Use company code as filename
+    const companyCode = taggingAsset.value.company.code.replace(/\s+/g, '_')
+    const uniqueCode = taggingAsset.value.uniqueCode ?? 'tag'
+
+    link.download = `${companyCode}_${uniqueCode}.png`
+    link.click()
+  } catch (err) {
+    console.error('Error capturing:', err)
+  }
 }
+
 
 /* Get company logo from assets/uploads folder */
 const getCompanyLogo = (company: Company) => {
@@ -420,30 +440,55 @@ initData()
     </div>
   </div>
     <!-- Tagging Modal -->
-  <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showTagModal = false">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-lg font-bold mb-4">Asset Tagging</h2>
+  <div
+  v-if="showTagModal"
+  class="fixed inset-0 flex items-center justify-center bg-black/50"
+  @click.self="showTagModal = false"
+>
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+    <h2 class="text-lg font-bold mb-4">Asset Tagging</h2>
 
-      <div class="flex flex-col items-center gap-4">
-        <!-- Company Logo -->
-        <img v-if="taggingAsset?.company" :src="getCompanyLogo(taggingAsset.company)" alt="Company Logo" class="h-16 object-contain" />
+    <!-- Capture Area -->
+    <div
+      ref="captureRef"
+      class="flex flex-col items-center gap-4 p-4"
+      style="background-color: #ffffff;">
+      
+      <img
+        v-if="taggingAsset?.company"
+        :src="getCompanyLogo(taggingAsset.company)"
+        alt="Company Logo"
+        class="h-16 object-contain"
+      />
 
-        <!-- Company Name -->
-        <h3 class="text-md font-semibold">{{ taggingAsset?.company?.name }}</h3>
+      <!-- Company Name -->
+      <h3 class="text-md font-semibold" style="color: #000000;">
+        {{ taggingAsset?.company?.name }}
+      </h3>
 
-        <!-- Asset -->
-        <h4 class="text-md font-semibold">{{ taggingAsset?.uniqueCode }}</h4> <!-- kailangan mo palitan ng iba like random number -->
+      <!-- Unique Code -->
+      <h4 class="text-md font-semibold" style="color: #000000;">
+        {{ taggingAsset?.uniqueCode }}
+      </h4>
 
-        <!-- QR Code -->
-        <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="QR Code" class="h-32 w-32" />
+      <!-- QR Code -->
+      <img
+        v-if="qrCodeDataUrl"
+        :src="qrCodeDataUrl"
+        alt="QR Code"
+        class="h-32 w-32"
+      />
+    </div>
 
-        <!-- Generate Tagging Button -->
-        <button @click="generateTagging" class="bg-emerald-600 text-white px-4 py-2 rounded mt-2">Generate Tagging</button>
-      </div>
-
-      <div class="flex justify-end mt-4">
-        <button @click="showTagModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Close</button>
-      </div>
+    <!-- Buttons outside capture area -->
+      <button
+        @click="downloadImage"
+        style="background-color: #2563eb; color: #ffffff; padding: 0.5rem 1rem; border-radius: 0.25rem;"
+      >
+        Download Image
+      </button>
     </div>
   </div>
+
+
 </template>

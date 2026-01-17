@@ -4,7 +4,7 @@ import SignupPage from '@/views/SignupPage.vue'
 import DashBoard from '@/views/DashBoard.vue'
 import NavBar from '@/components/NavBar.vue'
 import AssetTag from '@/views/AssetTag.vue'
-
+import Tag from '@/views/Tag.vue'
 const routes = [
   {
     path: '/',
@@ -30,6 +30,14 @@ const routes = [
     meta: { requiresAuth: true },
     component: NavBar
   },
+
+  {
+    path: '/tag',
+    name: 'Tag',
+    meta: { requiresAuth: true },
+    component: Tag
+  },
+
   {
     path: '/asset',
     name: 'Asset',

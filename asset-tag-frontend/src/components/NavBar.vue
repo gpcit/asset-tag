@@ -17,7 +17,7 @@ const router = useRouter()
 const navigation = [
   { name: 'Dashboard', to: '/dashboard' },
   { name: 'Asset', to: '/asset' },
-  { name: 'Projects', to: '/projects' },
+  { name: 'Asset Tag', to: '/tag' },
   { name: 'Calendar', to: '/calendar' },
 ]
 

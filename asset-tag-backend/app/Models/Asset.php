@@ -4,11 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Asset extends Model
 {
-    // Specify which fields can be mass-assigned
-
     use SoftDeletes;
+
     protected $fillable = [
         'person_in_charge',
         'department',
@@ -22,12 +22,11 @@ class Asset extends Model
         'date_deployed',
         'category_id',
         'company_id',
-        'remarks', 
+        'remarks',
     ];
 
     protected $dates = ['deleted_at'];
-    
-    // relationships
+
     public function company()
     {
         return $this->belongsTo(Companies::class, 'company_id');
@@ -36,5 +35,11 @@ class Asset extends Model
     public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    // IMPORTANT: relationship name
+    public function assetCode()
+    {
+        return $this->hasOne(\App\Models\AssetCode::class, 'asset_id', 'id');
     }
 }

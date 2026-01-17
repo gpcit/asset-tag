@@ -7,9 +7,9 @@ import api from '@/services/api'
 import QRCode from 'qrcode'
 import html2canvas from 'html2canvas'
 
-/*  Types  */
+/* ===== TYPES ===== */
 interface Category { id: number; name: string }
-interface Company { id: number; name: string,  logo?: string | null, code?: string; }
+interface Company { id: number; name: string, logo?: string | null, code?: string }
 
 interface AssetForm {
   personInCharge: string
@@ -45,7 +45,7 @@ interface Asset {
   uniqueCode?: string
 }
 
-/*  State  */
+/* ===== STATE ===== */
 const showCreateModal = ref(false)
 const isEditing = ref(false)
 const editingAssetId = ref<number | null>(null)
@@ -72,11 +72,12 @@ const form = ref<AssetForm>({
   categoryId: undefined,
   companyId: undefined,
 })
+
 const errors = ref<Record<string, string>>({})
 const userStore = useUserStore()
 const loading = ref(true)
 
-/*  Computed filtered assets  */
+/* ===== COMPUTED ===== */
 const filteredAssets = computed(() => {
   return userStore.assets.filter(asset => {
     const matchesCategory =
@@ -87,7 +88,7 @@ const filteredAssets = computed(() => {
   })
 })
 
-/*  Helpers  */
+/* ===== HELPERS ===== */
 const emptyForm = (): AssetForm => ({
   personInCharge: '',
   department: '',
@@ -118,59 +119,26 @@ const mapFormToPayload = (f: AssetForm) => ({
   company_id: f.companyId,
 })
 
+/* ===== VALIDATION ===== */
 const validateForm = () => {
   errors.value = {}
 
-  if (!form.value.personInCharge.trim()) {
-    errors.value.personInCharge = 'Person In-charge is required'
-  }
-
-  if (!form.value.department.trim()) {
-    errors.value.department = 'Department is required'
-  }
-
-  if (!(form.value.invoiceNumber ?? '').trim()) {
-    errors.value.invoiceNumber = 'Invoice Number is required'
-  }
-
-  if (!form.value.invoiceDate) {
-    errors.value.invoiceDate = 'Invoice Date is required'
-  }
-
-  if (form.value.cost === undefined || form.value.cost <= 0) {
-    errors.value.cost = 'Cost must be greater than 0'
-  }
-
-  if (!(form.value.supplier ?? '').trim()) {
-    errors.value.supplier = 'Supplier is required'
-  }
-
-  if (!(form.value.modelNumber ?? '').trim()) {
-  errors.value.modelNumber = 'Model Number is required'
-  }
-
-  if (!form.value.companyId) {
-    errors.value.companyId = 'Company is required'
-  }
-
-  if (!form.value.categoryId) {
-    errors.value.categoryId = 'Category is required'
-  }
-
-  if (!(form.value.specification ?? '').trim()) {
-  errors.value.specification = 'Specification is required'
-  }
-
-
-  if (!form.value.dateDeployed) {
-    errors.value.dateDeployed = 'Date Deployed is required'
-  }
+  if (!(form.value.personInCharge ?? '').trim()) errors.value.personInCharge = 'Person In-charge is required'
+  if (!(form.value.department ?? '').trim()) errors.value.department = 'Department is required'
+  if (!(form.value.invoiceNumber ?? '').trim()) errors.value.invoiceNumber = 'Invoice Number is required'
+  if (!form.value.invoiceDate) errors.value.invoiceDate = 'Invoice Date is required'
+  if (form.value.cost === undefined || form.value.cost <= 0) errors.value.cost = 'Cost must be greater than 0'
+  if (!(form.value.supplier ?? '').trim()) errors.value.supplier = 'Supplier is required'
+  if (!(form.value.modelNumber ?? '').trim()) errors.value.modelNumber = 'Model Number is required'
+  if (!form.value.companyId) errors.value.companyId = 'Company is required'
+  if (!form.value.categoryId) errors.value.categoryId = 'Category is required'
+  if (!(form.value.specification ?? '').trim()) errors.value.specification = 'Specification is required'
+  if (!form.value.dateDeployed) errors.value.dateDeployed = 'Date Deployed is required'
 
   return Object.keys(errors.value).length === 0
 }
 
-
-/*  Actions  */
+/* ===== ACTIONS ===== */
 const resetFilters = () => {
   selectedCategory.value = ''
   selectedCompany.value = ''
@@ -205,17 +173,12 @@ const openEditModal = (asset: Asset) => {
 
 const submitForm = async () => {
   if (!validateForm()) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Validation Error',
-      text: 'Please fix the highlighted fields.'
-    })
+    Swal.fire({ icon: 'error', title: 'Validation Error', text: 'Please fix the highlighted fields.' })
     return
   }
 
   try {
     const payload = mapFormToPayload(form.value)
-
     if (isEditing.value && editingAssetId.value) {
       await api.put(`/assets/${editingAssetId.value}`, payload)
       Swal.fire({ icon: 'success', title: 'Updated Successfully!', timer: 2000, showConfirmButton: false })
@@ -223,28 +186,19 @@ const submitForm = async () => {
       await api.post('/assets', payload)
       Swal.fire({ icon: 'success', title: 'Created Successfully!', timer: 2000, showConfirmButton: false })
     }
-
     showCreateModal.value = false
     form.value = emptyForm()
     isEditing.value = false
     editingAssetId.value = null
-    await userStore.fetchAssets() // refresh store data
-
+    await userStore.fetchAssets()
   } catch (err: any) {
     console.error('Failed to submit asset', err)
-    if (err.response?.data?.errors) {
-      const messages = Object.values(err.response.data.errors).flat().join('\n')
-      Swal.fire({ icon: 'error', title: 'Validation Error', text: messages })
-      return
-    }
     Swal.fire({ icon: 'error', title: 'Oops...', text: 'Failed to submit asset. Please try again.' })
   }
 }
 
-/* ================= CLEAR ERRORS ON CHANGE ================= */
-watch(form, () => {
-  errors.value = {}
-}, { deep: true })
+/* Clear errors on change */
+watch(form, () => { errors.value = {} }, { deep: true })
 
 const deleteAsset = async (asset: Asset) => {
   const result = await Swal.fire({
@@ -254,11 +208,10 @@ const deleteAsset = async (asset: Asset) => {
     showCancelButton: true,
     confirmButtonText: 'Yes, delete it!',
   })
-
   if (result.isConfirmed) {
     try {
       await api.delete(`/assets/${asset.id}`)
-      await userStore.fetchAssets() // refresh store
+      await userStore.fetchAssets()
       Swal.fire('Deleted!', 'Asset has been deleted.', 'success')
     } catch (err) {
       console.error('Delete failed', err)
@@ -267,80 +220,71 @@ const deleteAsset = async (asset: Asset) => {
   }
 }
 
-/*  Initial data load after login  */
+/* Load data */
 const initData = async () => {
   if (!userStore.assets.length) {
     loading.value = true
-    await userStore.initializeData() // fetch assets, categories, companies
+    await userStore.initializeData()
     loading.value = false
   }
 }
 
+/* ===== TAGGING MODAL ===== */
 const openTagModal = async (asset: Asset) => {
   showTagModal.value = true
-
   try {
-    // Generate unique code for display
     const companyCode = asset.company?.code ?? 'NO-CODE'
     const uniqueNumber = asset.id.toString().padStart(6, '0')
     const assetCode = `${companyCode}-${uniqueNumber}`
-
-    // Assign it to the taggingAsset
     taggingAsset.value = { ...asset, uniqueCode: assetCode }
 
-    // Generate QR code content with detailed info
     const qrText = 
       `Category: ${asset.category?.name ?? 'No Category'}\n` +
       `Company: ${asset.company?.name ?? 'No Company'}\n` +
       `Person In-charge: ${asset.person_in_charge ?? 'Unknown'}`
-
     qrCodeDataUrl.value = await QRCode.toDataURL(qrText)
   } catch (err) {
-    console.error('QR code generation failed', err)
+    console.error('QR generation failed', err)
     qrCodeDataUrl.value = ''
   }
 }
 
-/* Download QR code */
+/* Download image & auto-save unique code */
 const downloadImage = async () => {
-  if (!captureRef.value || !taggingAsset.value?.company?.code) return
+  if (!captureRef.value || !taggingAsset.value?.company?.code || !taggingAsset.value?.uniqueCode) return;
 
   try {
-    const canvas = await html2canvas(captureRef.value, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-    })
-
+    const canvas = await html2canvas(captureRef.value, { scale: 2, backgroundColor: '#ffffff' })
     const dataUrl = canvas.toDataURL('image/png')
 
     const link = document.createElement('a')
+    const companyCode = taggingAsset.value?.company?.code.replace(/\s+/g, '_') ?? 'NO-CODE'
+    const uniqueCode = taggingAsset.value?.uniqueCode ?? 'TAG'
     link.href = dataUrl
-
-    // Use company code as filename
-    const companyCode = taggingAsset.value.company.code.replace(/\s+/g, '_')
-    const uniqueCode = taggingAsset.value.uniqueCode ?? 'tag'
-
     link.download = `${companyCode}_${uniqueCode}.png`
     link.click()
+
+    // Save unique code automatically
+    await api.post('/assets/unique-code', {
+      asset_id: taggingAsset.value.id,
+      unique_code: taggingAsset.value.uniqueCode,
+    })
+
+    Swal.fire({ icon: 'success', title: 'Downloaded & Unique Code Saved!', timer: 1500, showConfirmButton: false })
+
   } catch (err) {
-    console.error('Error capturing:', err)
+    console.error('Error capturing or saving:', err)
+    Swal.fire({ icon: 'error', title: 'Failed to download or save unique code.' })
   }
 }
 
 
-/* Get company logo from assets/uploads folder */
+/* Company Logo */
 const getCompanyLogo = (company: Company) => {
-  if (!company?.logo) {
-    return new URL('../assets/uploads/placeholder.png', import.meta.url).href
-  }
-
+  if (!company?.logo) return new URL('../assets/uploads/placeholder.png', import.meta.url).href
   try {
-    return new URL(
-      `/public/${company.logo}`,  // Use 'logo' here
-      import.meta.url
-    ).href
-  } catch (err) {
-    console.warn(`Logo not found for company ${company.name}`)
+    return new URL(`/public/${company.logo}`, import.meta.url).href
+  } catch {
     return new URL('../assets/uploads/placeholder.png', import.meta.url).href
   }
 }
@@ -528,19 +472,17 @@ initData()
   </div>
 
   <!-- Tagging Modal -->
-  <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showTagModal = false">
+   <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showTagModal = false">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-bold mb-4">Asset Tagging</h2>
-
-      <div ref="captureRef" class="flex flex-col items-center gap-4 p-4" style="background-color: #ffffff;">
+      <div ref="captureRef" class="flex flex-col items-center gap-4 p-4" style="background-color: #fff;">
         <img v-if="taggingAsset?.company" :src="getCompanyLogo(taggingAsset.company)" alt="Company Logo" class="h-16 object-contain" />
-        <h3 class="text-md font-semibold" style="color: #000000;">{{ taggingAsset?.company?.name }}</h3>
-        <h4 class="text-md font-semibold" style="color: #000000;">{{ taggingAsset?.uniqueCode }}</h4>
+        <h3 class="text-md font-semibold">{{ taggingAsset?.company?.name }}</h3>
+        <h4 class="text-md font-semibold">{{ taggingAsset?.uniqueCode }}</h4>
         <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="QR Code" class="h-32 w-32" />
       </div>
-
-      <button @click="downloadImage" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">
-        ⬇️ Download Image
+      <button @click="downloadImage" class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded">
+        ⬇️ Download Image & Save Unique Code
       </button>
     </div>
   </div>

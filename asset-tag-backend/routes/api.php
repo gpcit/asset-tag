@@ -23,6 +23,16 @@ Route::apiResource('categories', CategoryController::class);
 
 Route::apiResource('companies', CompanyController::class);
 
+Route::get('/assets', [AssetController::class, 'index']);
+Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
+Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
+
+
+
+Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);
+
 Route::apiResource('assets', AssetController::class);
 
 Route::get('/dashboard/summary', [AssetController::class, 'summary']);
+
+Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);

@@ -72,7 +72,7 @@ const form = ref<AssetForm>({
   categoryId: undefined,
   companyId: undefined,
 })
-
+const errors = ref<Record<string, string>>({})
 const userStore = useUserStore()
 const loading = ref(true)
 
@@ -118,6 +118,58 @@ const mapFormToPayload = (f: AssetForm) => ({
   company_id: f.companyId,
 })
 
+const validateForm = () => {
+  errors.value = {}
+
+  if (!form.value.personInCharge.trim()) {
+    errors.value.personInCharge = 'Person In-charge is required'
+  }
+
+  if (!form.value.department.trim()) {
+    errors.value.department = 'Department is required'
+  }
+
+  if (!(form.value.invoiceNumber ?? '').trim()) {
+    errors.value.invoiceNumber = 'Invoice Number is required'
+  }
+
+  if (!form.value.invoiceDate) {
+    errors.value.invoiceDate = 'Invoice Date is required'
+  }
+
+  if (form.value.cost === undefined || form.value.cost <= 0) {
+    errors.value.cost = 'Cost must be greater than 0'
+  }
+
+  if (!(form.value.supplier ?? '').trim()) {
+    errors.value.supplier = 'Supplier is required'
+  }
+
+  if (!(form.value.modelNumber ?? '').trim()) {
+  errors.value.modelNumber = 'Model Number is required'
+  }
+
+  if (!form.value.companyId) {
+    errors.value.companyId = 'Company is required'
+  }
+
+  if (!form.value.categoryId) {
+    errors.value.categoryId = 'Category is required'
+  }
+
+  if (!(form.value.specification ?? '').trim()) {
+  errors.value.specification = 'Specification is required'
+  }
+
+
+  if (!form.value.dateDeployed) {
+    errors.value.dateDeployed = 'Date Deployed is required'
+  }
+
+  return Object.keys(errors.value).length === 0
+}
+
+
 /*  Actions  */
 const resetFilters = () => {
   selectedCategory.value = ''
@@ -152,16 +204,12 @@ const openEditModal = (asset: Asset) => {
 }
 
 const submitForm = async () => {
-  if (!form.value.personInCharge?.trim()) {
-    Swal.fire({ icon: 'error', title: 'Missing Field', text: 'Person In-charge is required.' })
-    return
-  }
-  if (!form.value.companyId) {
-    Swal.fire({ icon: 'error', title: 'Missing Field', text: 'Please select a Company.' })
-    return
-  }
-  if (!form.value.categoryId) {
-    Swal.fire({ icon: 'error', title: 'Missing Field', text: 'Please select a Category.' })
+  if (!validateForm()) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Validation Error',
+      text: 'Please fix the highlighted fields.'
+    })
     return
   }
 
@@ -192,6 +240,11 @@ const submitForm = async () => {
     Swal.fire({ icon: 'error', title: 'Oops...', text: 'Failed to submit asset. Please try again.' })
   }
 }
+
+/* ================= CLEAR ERRORS ON CHANGE ================= */
+watch(form, () => {
+  errors.value = {}
+}, { deep: true })
 
 const deleteAsset = async (asset: Asset) => {
   const result = await Swal.fire({
@@ -362,7 +415,7 @@ initData()
             <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
               <button @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️ Edit</button>
               <button @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️ Delete</button>
-              <button @click="openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️ Tagging</button>
+              <button @click="openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️ Add Tag</button>
             </td>
           </tr>
         </tbody>
@@ -377,59 +430,93 @@ initData()
       <h2 class="text-lg font-bold mb-3">{{ isEditing ? 'Edit Asset' : 'Create New Asset' }}</h2>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Person In-charge -->
         <div>
-          <label class="block text-sm font-medium mb-1">Person In-charge</label>
-          <input v-model="form.personInCharge" type="text" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Person In-charge <span class="text-red-500">*</span></label>
+          <input v-model="form.personInCharge" type="text" class="w-full border px-2 py-1 rounded text-sm" :class="errors.personInCharge ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.personInCharge" class="text-xs text-red-500 mt-1">{{ errors.personInCharge }}</p>
         </div>
+
+        <!-- Department -->
         <div>
-          <label class="block text-sm font-medium mb-1">Department</label>
-          <input v-model="form.department" type="text" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Department <span class="text-red-500">*</span></label>
+          <input v-model="form.department" type="text" class="w-full border px-2 py-1 rounded text-sm" :class="errors.department ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.department" class="text-xs text-red-500 mt-1">{{ errors.department }}</p>
         </div>
+
+        <!-- Invoice Number -->
         <div>
-          <label class="block text-sm font-medium mb-1">Invoice Number</label>
-          <input v-model="form.invoiceNumber" type="text" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Invoice Number <span class="text-red-500">*</span></label>
+          <input v-model="form.invoiceNumber" type="text" class="w-full border px-2 py-1 rounded text-sm" :class="errors.invoiceNumber ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.invoiceNumber" class="text-xs text-red-500 mt-1">{{ errors.invoiceNumber }}</p>
         </div>
+
+        <!-- Invoice Date -->
         <div>
-          <label class="block text-sm font-medium mb-1">Invoice Date</label>
-          <input v-model="form.invoiceDate" type="date" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Invoice Date <span class="text-red-500">*</span></label>
+          <input v-model="form.invoiceDate" type="date" class="w-full border px-2 py-1 rounded text-sm" :class="errors.invoiceDate ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.invoiceDate" class="text-xs text-red-500 mt-1">{{ errors.invoiceDate }}</p>
         </div>
+
+        <!-- Cost -->
         <div>
-          <label class="block text-sm font-medium mb-1">Cost</label>
-          <input v-model.number="form.cost" type="number" step="0.01" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Cost <span class="text-red-500">*</span></label>
+          <input v-model.number="form.cost" type="number" step="0.01" class="w-full border px-2 py-1 rounded text-sm" :class="errors.cost ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.cost" class="text-xs text-red-500 mt-1">{{ errors.cost }}</p>
         </div>
+
+        <!-- Supplier -->
         <div>
-          <label class="block text-sm font-medium mb-1">Supplier</label>
-          <input v-model="form.supplier" type="text" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Supplier <span class="text-red-500">*</span></label>
+          <input v-model="form.supplier" type="text" class="w-full border px-2 py-1 rounded text-sm" :class="errors.supplier ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.supplier" class="text-xs text-red-500 mt-1">{{ errors.supplier }}</p>
         </div>
+
+        <!-- Model Number -->
         <div>
-          <label class="block text-sm font-medium mb-1">Model Number</label>
-          <input v-model="form.modelNumber" type="text" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Model Number <span class="text-red-500">*</span></label>
+          <input v-model="form.modelNumber" type="text" class="w-full border px-2 py-1 rounded text-sm" :class="errors.modelNumber ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.modelNumber" class="text-xs text-red-500 mt-1">{{ errors.modelNumber }}</p>
         </div>
+
+        <!-- Company -->
         <div>
-          <label class="block text-sm font-medium mb-1">Company</label>
-          <select v-model="form.companyId" class="w-full border rounded px-2 py-1 text-sm">
+          <label class="block text-sm font-medium mb-1">Company <span class="text-red-500">*</span></label>
+          <select v-model="form.companyId" class="w-full border px-2 py-1 rounded text-sm" :class="errors.companyId ? 'border-red-500' : 'border-gray-300'">
             <option value="">Select Company</option>
             <option v-for="comp in userStore.companies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
           </select>
+          <p v-if="errors.companyId" class="text-xs text-red-500 mt-1">{{ errors.companyId }}</p>
         </div>
+
+        <!-- Category -->
         <div>
-          <label class="block text-sm font-medium mb-1">Category</label>
-          <select v-model="form.categoryId" class="w-full border rounded px-2 py-1 text-sm">
+          <label class="block text-sm font-medium mb-1">Category <span class="text-red-500">*</span></label>
+          <select v-model="form.categoryId" class="w-full border px-2 py-1 rounded text-sm" :class="errors.categoryId ? 'border-red-500' : 'border-gray-300'">
             <option value="">Select Category</option>
             <option v-for="cat in userStore.categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
+          <p v-if="errors.categoryId" class="text-xs text-red-500 mt-1">{{ errors.categoryId }}</p>
         </div>
+
+        <!-- Specification -->
         <div class="col-span-1 md:col-span-2">
-          <label class="block text-sm font-medium mb-1">Specification</label>
-          <textarea v-model="form.specification" class="w-full border rounded px-2 py-1 text-sm resize-y" rows="3"></textarea>
+          <label class="block text-sm font-medium mb-1">Specification <span class="text-red-500">*</span></label>
+          <textarea v-model="form.specification" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y" :class="errors.specification ? 'border-red-500' : 'border-gray-300'"></textarea>
+          <p v-if="errors.specification" class="text-xs text-red-500 mt-1">{{ errors.specification }}</p>
         </div>
+
+        <!-- Remarks -->
         <div class="col-span-1 md:col-span-2">
-          <label class="block text-sm font-medium mb-1">Remarks</label>
-          <textarea v-model="form.remarks" class="w-full border rounded px-2 py-1 text-sm resize-y" rows="3"></textarea>
+          <label class="block text-sm font-medium mb-1">Remarks <span class="text-red-500"></span></label>
+          <textarea v-model="form.remarks" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
         </div>
+
+        <!-- Date Deployed -->
         <div>
-          <label class="block text-sm font-medium mb-1">Date Deployed</label>
-          <input v-model="form.dateDeployed" type="date" class="w-full border rounded px-2 py-1 text-sm" />
+          <label class="block text-sm font-medium mb-1">Date Deployed <span class="text-red-500">*</span></label>
+          <input v-model="form.dateDeployed" type="date" class="w-full border px-2 py-1 rounded text-sm" :class="errors.dateDeployed ? 'border-red-500' : 'border-gray-300'" />
+          <p v-if="errors.dateDeployed" class="text-xs text-red-500 mt-1">{{ errors.dateDeployed }}</p>
         </div>
       </div>
 
@@ -439,56 +526,22 @@ initData()
       </div>
     </div>
   </div>
-    <!-- Tagging Modal -->
-  <div
-  v-if="showTagModal"
-  class="fixed inset-0 flex items-center justify-center bg-black/50"
-  @click.self="showTagModal = false"
->
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-    <h2 class="text-lg font-bold mb-4">Asset Tagging</h2>
 
-    <!-- Capture Area -->
-    <div
-      ref="captureRef"
-      class="flex flex-col items-center gap-4 p-4"
-      style="background-color: #ffffff;">
-      
-      <img
-        v-if="taggingAsset?.company"
-        :src="getCompanyLogo(taggingAsset.company)"
-        alt="Company Logo"
-        class="h-16 object-contain"
-      />
+  <!-- Tagging Modal -->
+  <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50" @click.self="showTagModal = false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+      <h2 class="text-lg font-bold mb-4">Asset Tagging</h2>
 
-      <!-- Company Name -->
-      <h3 class="text-md font-semibold" style="color: #000000;">
-        {{ taggingAsset?.company?.name }}
-      </h3>
+      <div ref="captureRef" class="flex flex-col items-center gap-4 p-4" style="background-color: #ffffff;">
+        <img v-if="taggingAsset?.company" :src="getCompanyLogo(taggingAsset.company)" alt="Company Logo" class="h-16 object-contain" />
+        <h3 class="text-md font-semibold" style="color: #000000;">{{ taggingAsset?.company?.name }}</h3>
+        <h4 class="text-md font-semibold" style="color: #000000;">{{ taggingAsset?.uniqueCode }}</h4>
+        <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="QR Code" class="h-32 w-32" />
+      </div>
 
-      <!-- Unique Code -->
-      <h4 class="text-md font-semibold" style="color: #000000;">
-        {{ taggingAsset?.uniqueCode }}
-      </h4>
-
-      <!-- QR Code -->
-      <img
-        v-if="qrCodeDataUrl"
-        :src="qrCodeDataUrl"
-        alt="QR Code"
-        class="h-32 w-32"
-      />
-    </div>
-
-    <!-- Buttons outside capture area -->
-      <button
-        @click="downloadImage"
-        style="background-color: #2563eb; color: #ffffff; padding: 0.5rem 1rem; border-radius: 0.25rem;"
-      >
-        Download Image
+      <button @click="downloadImage" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">
+        ⬇️ Download Image
       </button>
     </div>
   </div>
-
-
 </template>

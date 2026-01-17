@@ -208,7 +208,7 @@ onMounted(() => {
         <p><span class="text-gray-500">Category:</span> {{ foundAsset.category?.name || '-' }}</p>
         <p><span class="text-gray-500">Supplier:</span> {{ foundAsset.supplier || '-' }}</p>
         <p><span class="text-gray-500">Model:</span> {{ foundAsset.model_number || '-' }}</p>
-        <p><span class="text-gray-500">Cost:</span> ${{ foundAsset.cost ?? '0' }}</p>
+        <p><span class="text-gray-500">Cost:</span> ₱{{ foundAsset.cost ?? '0' }}</p>
       </div>
     </div>
 

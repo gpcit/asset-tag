@@ -4,16 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
-    // List all categories
+    /**
+     * List all categories (id + name only)
+     */
     public function index()
     {
-        return Category::all();
+        // Returns array of objects: {id, name}, sorted by name
+        return Category::whereNotNull('name')
+                       ->where('name', '!=', '')
+                       ->orderBy('name')
+                       ->get(['id', 'name']); 
     }
 
-    // Store new category
+    /**
+     * Store a new category
+     */
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -21,15 +30,43 @@ class CategoryController extends Controller
             'slug' => 'nullable|string|unique:categories,slug',
         ]);
 
-        // Auto-generate slug if not provided
+        $data['name'] = trim($data['name']);
+
         if (empty($data['slug'])) {
-            $data['slug'] = \Str::slug($data['name']);
+            $data['slug'] = Str::slug($data['name']);
         }
 
         $category = Category::create($data);
 
-        return response()->json($category, 201);
+        return response()->json([
+            'id' => $category->id,
+            'name' => $category->name
+        ], 201);
     }
 
-    // Add update, show, delete methods as needed
+    /**
+     * Soft delete a category
+     */
+    public function destroy($id)
+    {
+        $category = Category::findOrFail($id);
+        $category->delete();
+
+        return response()->json([
+            'message' => 'Category deleted successfully'
+        ]);
+    }
+
+    // /**
+    //  * Restore a soft-deleted category (optional)
+    //  */
+    // public function restore($id)
+    // {
+    //     $category = Category::withTrashed()->findOrFail($id);
+    //     $category->restore();
+
+    //     return response()->json([
+    //         'message' => 'Category restored successfully'
+    //     ]);
+    // }
 }

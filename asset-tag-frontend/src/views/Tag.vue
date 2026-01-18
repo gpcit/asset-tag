@@ -152,7 +152,7 @@ onMounted(() => {
       <h2 class="text-2xl font-bold">Asset Management</h2>
       <button
         @click="exportToExcel"
-        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow flex items-center gap-2"
+        class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 shadow flex items-center gap-2"
       >
         📥 Export All to Excel
       </button>

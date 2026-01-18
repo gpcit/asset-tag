@@ -20,13 +20,16 @@ Route::post('/login', [AuthController::class, 'login']);
 
 
 Route::apiResource('categories', CategoryController::class);
+Route::get('/categories', [CategoryController::class, 'index']);
+Route::post('/categories', [CategoryController::class, 'store']);
+Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
 
 Route::apiResource('companies', CompanyController::class);
 
 Route::get('/assets', [AssetController::class, 'index']);
 Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
 Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
-
 
 
 Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);

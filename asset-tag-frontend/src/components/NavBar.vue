@@ -18,7 +18,7 @@ const navigation = [
   { name: 'Dashboard', to: '/dashboard' },
   { name: 'Asset', to: '/asset' },
   { name: 'Asset Tag', to: '/tag' },
-  { name: 'Calendar', to: '/calendar' },
+  { name: 'Categoty List', to: '/category' },
 ]
 
 const logout = () => {
@@ -95,7 +95,7 @@ const logout = () => {
               <span class="sr-only">Open user menu</span>
               <img
                 class="size-8 rounded-full bg-gray-800"
-                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e"
+                src="../assets/profile.jpg"
                 alt=""
               />
             </MenuButton>

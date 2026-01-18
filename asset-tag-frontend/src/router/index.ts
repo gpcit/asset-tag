@@ -5,6 +5,7 @@ import DashBoard from '@/views/DashBoard.vue'
 import NavBar from '@/components/NavBar.vue'
 import AssetTag from '@/views/AssetTag.vue'
 import Tag from '@/views/Tag.vue'
+import CategoryList from '@/views/CategoryList.vue'
 const routes = [
   {
     path: '/',
@@ -43,6 +44,12 @@ const routes = [
     name: 'Asset',
     meta: { requiresAuth: true },
     component: AssetTag
+  },
+  {
+    path: '/category',
+    name: 'Category',
+    meta: { requiresAuth: true },
+    component: CategoryList
   }
 ]
 

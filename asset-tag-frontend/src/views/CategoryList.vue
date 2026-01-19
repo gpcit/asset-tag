@@ -40,7 +40,7 @@ const addCategory = async () => {
     newCategory.value = ''
     Swal.fire('Added', 'Category added successfully', 'success')
   } catch (err) {
-    Swal.fire('Error', 'Failed to add category', 'error')
+    Swal.fire('Error', 'The name has already been taken', 'error')
   }
 }
 

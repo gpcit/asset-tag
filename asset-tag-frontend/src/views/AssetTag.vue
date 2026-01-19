@@ -56,6 +56,7 @@ const editingAssetId = ref<number | null>(null)
 
 const selectedCategory = ref<number | ''>('')
 const selectedCompany = ref<number | ''>('')
+const searchQuery = ref('') // <-- Search bar state
 
 const showTagModal = ref(false)
 const taggingAsset = ref<TaggingAsset | null>(null)
@@ -86,12 +87,19 @@ const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
 const filteredAssets = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+
   return userStore.assets.filter(asset => {
     const matchesCategory =
       selectedCategory.value === '' || asset.category_id === selectedCategory.value
     const matchesCompany =
       selectedCompany.value === '' || asset.company_id === selectedCompany.value
-    return matchesCategory && matchesCompany
+    const matchesSearch =
+      !query ||
+      (asset.person_in_charge?.toLowerCase().includes(query)) ||
+      (asset.company?.name?.toLowerCase().includes(query))
+    
+    return matchesCategory && matchesCompany && matchesSearch
   })
 })
 
@@ -103,7 +111,7 @@ const paginatedAssets = computed(() => {
 
 const totalPages = computed(() => Math.ceil(filteredAssets.value.length / itemsPerPage.value))
 
-watch([selectedCategory, selectedCompany], () => {
+watch([selectedCategory, selectedCompany, searchQuery], () => {
   currentPage.value = 1
 })
 
@@ -161,6 +169,7 @@ const validateForm = () => {
 const resetFilters = () => {
   selectedCategory.value = ''
   selectedCompany.value = ''
+  searchQuery.value = '' // <-- clear search too
 }
 
 const openCreateModal = () => {
@@ -341,6 +350,11 @@ initData()
     <!-- Sidebar / Filters -->
     <div class="w-80 p-6 bg-white shadow-xl rounded-xl flex-shrink-0">
       <h3 class="text-lg font-semibold mb-2">Filter Assets</h3>
+
+      <!-- Search Bar -->
+      <div class="mb-4">
+        <input v-model="searchQuery" type="text" placeholder="Search by Person In-charge or Company" class="w-full border rounded px-3 py-2 text-sm"/>
+      </div>
 
       <!-- Category -->
       <div class="mb-4">

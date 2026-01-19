@@ -100,7 +100,7 @@ onMounted(() => {
         </div>
         <div class="bg-emerald-100 p-4 rounded shadow">
           <p class="text-sm text-gray-700">Total Cost</p>
-          <p class="text-xl font-bold">{{ formatCurrency(totalCost) }}</p>
+          <p class="text-xl font-bold">₱{{ formatCurrency(totalCost) }}</p>
         </div>
       </div>
 

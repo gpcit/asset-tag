@@ -15,6 +15,7 @@ class AssetCode extends Model
 
     public function asset()
     {
-        return $this->belongsTo(Asset::class, 'asset_id', 'id');
+        // Point to the new table/model
+        return $this->belongsTo(AssetInventory::class, 'asset_id', 'id');
     }
 }

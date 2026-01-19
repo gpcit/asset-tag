@@ -3,28 +3,23 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Asset;
+use Illuminate\Support\Facades\DB;
+use App\Models\AssetInventory;
 use App\Models\AssetCode;
 use App\Models\Category;
-use App\Models\Companies; // Ensure this matches your model name (Companies vs Company)
+use App\Models\Companies; // make sure this matches your model
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AssetController extends Controller
 {
     /**
-     * LIST ASSETS (WITH UNIQUE CODES & RELATIONSHIPS)
-     * Used for the main list and the Excel Export
+     * LIST ASSETS
      */
     public function index(Request $request)
     {
-        $query = Asset::with([
-            'company',
-            'category',
-            'assetCode' 
-        ]);
+        $query = AssetInventory::with(['company', 'category', 'assetCode']);
 
-        // Filter: only assets that have a unique code assigned
-        if ($request->has('has_unique_code')) {
+        if ($request->boolean('has_unique_code')) {
             $query->whereHas('assetCode');
         }
 
@@ -33,15 +28,13 @@ class AssetController extends Controller
 
     /**
      * DASHBOARD SUMMARY
-     * Fixes the "undefined method summary()" error
      */
     public function summary()
     {
-        $totalAssets = Asset::count();
-        $totalCost = Asset::sum('cost');
+        $totalAssets = AssetInventory::count();
+        $totalCost = AssetInventory::sum('cost');
 
-        // Group assets by company for dashboard analytics
-        $byCompany = Asset::with(['company', 'category'])
+        $byCompany = AssetInventory::with(['company', 'category'])
             ->get()
             ->groupBy('company_id')
             ->map(function ($items) {
@@ -49,7 +42,7 @@ class AssetController extends Controller
                 return [
                     'company' => $companyName,
                     'asset_count' => $items->count(),
-                    'total_cost' => $items->sum('cost'),
+                    'total_cost' => $items->sum('cost') ?? 0,
                     'categories' => $items->pluck('category.name')->unique()->implode(', '),
                 ];
             })
@@ -77,7 +70,7 @@ class AssetController extends Controller
             ->first();
 
         if (!$assetCode || !$assetCode->asset) {
-            return response()->json(['message' => 'Asset not found for this unique code.'], 404);
+            return response()->json(['message' => 'Asset not found'], 404);
         }
 
         return response()->json([
@@ -87,88 +80,119 @@ class AssetController extends Controller
     }
 
     /**
-     * UNIQUE CODE SUGGESTIONS (Auto-complete)
+     * UNIQUE CODE AUTOCOMPLETE
      */
     public function suggestUniqueCodes(Request $request)
     {
-        $q = $request->query('q', '');
-        $codes = AssetCode::where('unique_code', 'like', "%{$q}%")
+        return AssetCode::where('unique_code', 'like', '%' . $request->query('q', '') . '%')
             ->limit(10)
             ->pluck('unique_code');
-
-        return response()->json($codes);
     }
 
     /**
-     * STORE A NEW ASSET
+     * STORE ASSET
      */
+    
     public function store(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'person_in_charge' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'company_id' => 'required|exists:companies,id',
             'category_id' => 'required|exists:categories,id',
-            'cost' => 'nullable|numeric',
+            'cost' => 'nullable|numeric|min:0',
+            'supplier' => 'nullable|string|max:255',
+            'model_number' => 'nullable|string|max:255',
+            'specs' => 'nullable|string',
+            'invoice_date' => 'nullable|date',
+            'invoice_number' => 'nullable|string|max:255',
+            'date_deployed' => 'nullable|date',
+            'remarks' => 'nullable|string',
         ]);
 
-        $asset = Asset::create($request->all());
+        $asset = AssetInventory::create($data);
+
         return response()->json($asset, 201);
     }
 
+    public function update(Request $request, AssetInventory $asset)
+    {
+        $data = $request->validate([
+            'person_in_charge' => 'sometimes|required|string|max:255',
+            'department' => 'sometimes|required|string|max:255',
+            'company_id' => 'sometimes|required|exists:companies,id',
+            'category_id' => 'sometimes|required|exists:categories,id',
+            'cost' => 'nullable|numeric|min:0',
+            'supplier' => 'nullable|string|max:255',
+            'model_number' => 'nullable|string|max:255',
+            'specs' => 'nullable|string',
+            'invoice_date' => 'nullable|date',
+            'invoice_number' => 'nullable|string|max:255',
+            'date_deployed' => 'nullable|date',
+            'remarks' => 'nullable|string',
+        ]);
+
+        $asset->update($data);
+
+        return response()->json($asset);
+    }
+
+
+
+
     /**
-     * SAVE/ASSIGN UNIQUE CODE TO ASSET
+     * ASSIGN UNIQUE CODE
      */
     public function saveUniqueCode(Request $request)
     {
-        $request->validate([
-            'asset_id' => 'required|exists:assets,id',
+        $data = $request->validate([
+            'asset_id' => 'required|exists:asset_inventories,id',
             'unique_code' => 'required|string|unique:asset_codes,unique_code',
         ]);
 
-        $assetCode = AssetCode::create([
-            'asset_id' => $request->asset_id,
-            'unique_code' => $request->unique_code,
-        ]);
+        $assetCode = AssetCode::create($data);
 
         return response()->json([
-            'message' => 'Unique code saved successfully',
+            'message' => 'Unique code saved',
             'data' => $assetCode,
         ], 201);
     }
 
     /**
-     * DOWNLOAD/GENERATE QR TAG
+     * DOWNLOAD QR TAG
      */
     public function downloadTag($unique_code)
     {
-        $assetCode = AssetCode::with(['asset.company'])->where('unique_code', $unique_code)->first();
+        $assetCode = AssetCode::with(['asset.company'])
+            ->where('unique_code', $unique_code)
+            ->firstOrFail();
 
-        if (!$assetCode) {
-            return response()->json(['message' => 'Not found'], 404);
-        }
+        $asset = $assetCode->asset;
 
-        $qrText = "Code: {$unique_code}\n"
-                . "Owner: {$assetCode->asset->person_in_charge}\n"
-                . "Company: " . ($assetCode->asset->company->name ?? 'N/A');
+        $qrText =
+            "Code: {$assetCode->unique_code}\n" .
+            "Owner: {$asset->person_in_charge}\n" .
+            "Company: " . ($asset->company->name ?? 'N/A');
 
-        $qrImage = QrCode::format('png')->size(300)->margin(2)->generate($qrText);
-
-        return response($qrImage)->header('Content-Type', 'image/png');
+        return response(
+            QrCode::format('png')->size(300)->margin(2)->generate($qrText)
+        )->header('Content-Type', 'image/png');
     }
 
     /**
-     * STANDARD RESOURCE METHODS (SHOW, UPDATE, DESTROY)
+     * SHOW ASSET
      */
-    public function show(Asset $asset) { return $asset->load('company', 'category', 'assetCode'); }
-
-    public function update(Request $request, Asset $asset) {
-        $asset->update($request->all());
-        return response()->json($asset);
+    public function show(AssetInventory $asset)
+    {
+        return $asset->load('company', 'category', 'assetCode');
     }
 
-    public function destroy(Asset $asset) {
-        $asset->delete();
+    /**
+     * DELETE ASSET
+     */
+    public function destroy(AssetInventory $asset)
+    {
+        $asset->delete(); // soft delete, sets deleted_at
         return response()->json(null, 204);
     }
 }

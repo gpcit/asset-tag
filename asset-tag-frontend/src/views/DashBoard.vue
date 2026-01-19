@@ -2,15 +2,15 @@
 import { ref, onMounted, computed } from 'vue'
 import api from '@/services/api'
 import NavBar from '@/components/NavBar.vue'
-import PieChart from '@/components/PieChart.vue' // Adjust path accordingly
+import PieChart from '@/components/PieChart.vue' // adjust path accordingly
 import type { ChartData, ChartOptions } from 'chart.js'
 
 // Types
 interface CompanySummary {
-  company: string;
-  asset_count: number;
-  total_cost: number;
-  categories: string;
+  company: string
+  asset_count: number
+  total_cost: number
+  categories: string
 }
 
 // State
@@ -27,7 +27,7 @@ const fetchDashboard = async () => {
   error.value = null
 
   try {
-    const { data } = await api.get('/dashboard/summary') // make sure this route exists
+    const { data } = await api.get('/dashboard/summary')
     totalAssets.value = data.totalAssets
     totalCost.value = data.totalCost
     byCompany.value = data.byCompany
@@ -48,27 +48,40 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 2
   })
 
-// Prepare Pie Chart data and options (reactive)
+// Old color palette
+const oldColors = [
+  '#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#D1FAE5',
+  '#059669', '#047857', '#065F46', '#064E3B', '#022C22'
+]
+
+// Generate colors dynamically (repeats old palette if more companies)
+const generateColors = (count: number) => {
+  const colors = []
+  for (let i = 0; i < count; i++) {
+    colors.push(oldColors[i % oldColors.length])
+  }
+  return colors
+}
+
+// Pie chart data
 const pieData = computed<ChartData<'pie', number[], string>>(() => ({
   labels: byCompany.value.map(item => item.company),
   datasets: [
     {
       data: byCompany.value.map(item => item.asset_count),
-      backgroundColor: [
-        '#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#D1FAE5', 
-        '#059669', '#047857', '#065F46', '#064E3B', '#022C22'
-      ].slice(0, byCompany.value.length),
+      backgroundColor: generateColors(byCompany.value.length),
       hoverOffset: 10,
     },
   ],
 }))
 
+// Pie chart options
 const pieOptions: ChartOptions<'pie'> = {
   responsive: true,
   plugins: {
     legend: {
       position: 'right',
-      labels: { color: '#065F46' } // dark green text
+      labels: { color: '#065F46' },
     },
     tooltip: { enabled: true },
   },
@@ -78,6 +91,7 @@ onMounted(() => {
   fetchDashboard()
 })
 </script>
+
 <template>
   <NavBar />
 
@@ -93,6 +107,7 @@ onMounted(() => {
     </div>
 
     <div v-else>
+      <!-- Summary cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-emerald-100 p-4 rounded shadow">
           <p class="text-sm text-gray-700">Total Assets</p>
@@ -104,91 +119,61 @@ onMounted(() => {
         </div>
       </div>
 
-  <div class="p-6 pt-8 max-w-7xl mx-auto">
-    <!-- ... your summary cards and other parts stay above ... -->
-
-    <!-- By Company Section – Redesigned -->
-    <section class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
-      <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white">
-        <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-3">
-          <span class="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>
-          By Company
-        </h2>
-      </div>
-
-      <div class="flex flex-col lg:flex-row">
-        <!-- Table – Left side (takes more space) -->
-        <div class="lg:w-3/5 xl:w-7/12 border-r border-gray-100 lg:border-r">
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-              <thead class="bg-emerald-600 text-white sticky top-0 z-10">
-                <tr>
-                  <th scope="col" class="px-6 py-4 text-left font-semibold tracking-wide">Company</th>
-                  <th scope="col" class="px-6 py-4 text-right font-semibold tracking-wide">Assets</th>
-                  <th scope="col" class="px-6 py-4 text-right font-semibold tracking-wide">Total Cost</th>
-                  <th scope="col" class="px-6 py-4 text-left font-semibold tracking-wide">Categories</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100 bg-white">
-                <tr
-                  v-for="item in byCompany"
-                  :key="item.company"
-                  class="hover:bg-emerald-50/60 transition-colors duration-150 cursor-pointer group"
-                >
-                  <td class="px-6 py-4 font-medium text-gray-900 group-hover:text-emerald-700">
-                    {{ item.company }}
-                  </td>
-                  <td class="px-6 py-4 text-right text-gray-700">{{ item.asset_count }}</td>
-                  <td class="px-6 py-4 text-right font-semibold text-gray-800">
-                    {{ formatCurrency(item.total_cost) }}
-                  </td>
-                  <td class="px-6 py-4 text-gray-600">
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                      {{ item.categories }}
-                    </span>
-                  </td>
-                </tr>
-
-                <!-- Optional: empty state -->
-                <tr v-if="!byCompany?.length">
-                  <td colspan="4" class="px-6 py-10 text-center text-gray-500 italic">
-                    No company data available yet
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      <!-- By Company Section -->
+      <section class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-white">
+          <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-3">
+            <span class="inline-block w-3 h-3 rounded-full bg-emerald-500"></span>
+            By Company
+          </h2>
         </div>
 
-        <!-- Pie Chart – Right side -->
-        <div class="lg:w-2/5 xl:w-5/12 p-6 lg:p-8 flex items-center justify-center bg-gradient-to-br from-emerald-50/30 to-white">
-          <div class="w-full max-w-[520px] aspect-square">
-            <PieChart
-              :data="pieData"
-              :options="{
-                ...pieOptions,
-                plugins: {
-                  legend: {
-                    position: 'bottom',
-                    labels: { padding: 20, font: { size: 13 } }
-                  },
-                  title: {
-                    display: true,
-                    text: 'Cost Distribution by Company',
-                    font: { size: 16, weight: 'bolder' },
-                    color: '#1f2937',
-                    padding: { bottom: 16 }
-                  }
-                },
-                maintainAspectRatio: true
-              }"
-            />
+        <div class="flex flex-col lg:flex-row">
+          <!-- Table -->
+          <div class="lg:w-3/5 xl:w-7/12 border-r border-gray-100 lg:border-r">
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-emerald-600 text-white sticky top-0 z-10">
+                  <tr>
+                    <th class="px-6 py-4 text-left font-semibold tracking-wide">Company</th>
+                    <th class="px-6 py-4 text-right font-semibold tracking-wide">Assets</th>
+                    <th class="px-6 py-4 text-right font-semibold tracking-wide">Total Cost</th>
+                    <th class="px-6 py-4 text-left font-semibold tracking-wide">Categories</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 bg-white">
+                  <tr v-for="item in byCompany" :key="item.company" class="hover:bg-emerald-50/60 transition-colors duration-150 cursor-pointer group">
+                    <td class="px-6 py-4 font-medium text-gray-900 group-hover:text-emerald-700">
+                      {{ item.company }}
+                    </td>
+                    <td class="px-6 py-4 text-right text-gray-700">{{ item.asset_count }}</td>
+                    <td class="px-6 py-4 text-right font-semibold text-gray-800">
+                      {{ formatCurrency(item.total_cost) }}
+                    </td>
+                    <td class="px-6 py-4 text-gray-600">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                        {{ item.categories }}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr v-if="!byCompany?.length">
+                    <td colspan="4" class="px-6 py-10 text-center text-gray-500 italic">
+                      No company data available yet
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Pie Chart -->
+          <div class="lg:w-2/5 xl:w-5/12 p-6 lg:p-8 flex items-center justify-center bg-gradient-to-br from-emerald-50/30 to-white">
+            <div class="w-full max-w-[520px] aspect-square">
+              <PieChart :data="pieData" :options="pieOptions" />
+            </div>
           </div>
         </div>
-      </div>
-    </section>
-  </div>
+      </section>
     </div>
   </div>
 </template>
-

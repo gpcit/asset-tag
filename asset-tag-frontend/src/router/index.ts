@@ -34,7 +34,7 @@ const routes = [
   },
 
   {
-    path: '/tag',
+    path: '/tagging',
     name: 'Tag',
     meta: { requiresAuth: true },
     component: Tag

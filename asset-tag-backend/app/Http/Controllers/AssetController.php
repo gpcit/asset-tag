@@ -130,10 +130,10 @@ class AssetController extends Controller
             'invoice_number' => 'nullable|string|max:255',
             'date_deployed' => 'nullable|date',
             'remarks' => 'nullable|string',
+            'is_active' => 'sometimes|boolean', // Add this line!
         ]);
-
+        
         $asset->update($data);
-
         return response()->json($asset);
     }
 
@@ -194,5 +194,45 @@ class AssetController extends Controller
     {
         $asset->delete(); // soft delete, sets deleted_at
         return response()->json(null, 204);
+    }
+
+    public function assetList()
+    {
+        $assets = AssetInventory::with('company')
+            ->where('is_active', 1)
+            ->get(['id', 'person_in_charge', 'company_id', 'is_active']);
+
+        $result = $assets->map(function ($asset) {
+            return [
+                'id' => $asset->id,
+                'person_in_charge' => $asset->person_in_charge,
+                'company' => $asset->company?->name ?? 'N/A',
+                'is_active' => $asset->is_active,
+            ];
+        });
+
+        return response()->json($result)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    }
+    public function assetListAll()
+    {
+        $assets = AssetInventory::with('company')
+            ->get(['id', 'person_in_charge', 'company_id', 'is_active']);
+        
+        $result = $assets->map(function ($asset) {
+            return [
+                'id' => $asset->id,
+                'person_in_charge' => $asset->person_in_charge,
+                'company' => $asset->company?->name ?? 'N/A',
+                'is_active' => $asset->is_active,
+            ];
+        });
+        
+        return response()->json($result)
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 }

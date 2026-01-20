@@ -18,7 +18,8 @@ const navigation = [
   { name: 'Dashboard', to: '/dashboard' },
   { name: 'Asset', to: '/asset' },
   { name: 'Asset Tag', to: '/tag' },
-  { name: 'Categoty List', to: '/category' },
+  { name: 'Category List', to: '/category' },
+  {name: 'Asset List', to: '/asset_list'}
 ]
 
 const logout = () => {

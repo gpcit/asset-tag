@@ -30,6 +30,8 @@ Route::apiResource('companies', CompanyController::class);
 Route::get('/assets', [AssetController::class, 'index']);
 Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
 Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
+Route::get('/asset_list', [AssetController::class,'assetList']);
+Route::get('/asset_list_all', [AssetController::class, 'assetListAll']);
 
 
 Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);

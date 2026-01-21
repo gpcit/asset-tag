@@ -15,7 +15,7 @@ interface Asset {
   cost?: number
   supplier?: string
   model_number?: string
-  specifications?: string
+  specs?: string
   remarks?: string
   date_deployed?: string
   category?: { name: string }
@@ -125,7 +125,7 @@ const exportToExcel = () => {
       'Invoice Number': a.invoice_number || '-',
       'Invoice Date': a.invoice_date || '-',
       'Date Deployed': a.date_deployed || '-',
-      'Specifications': a.specifications || '-',
+      'Specifications': a.specs || '-',
       'Remarks': a.remarks || '-',
     }
   })

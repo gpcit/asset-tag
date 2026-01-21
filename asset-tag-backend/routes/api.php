@@ -7,27 +7,6 @@ use App\Http\Controllers\CompanyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| CORS HEADERS (GLOBAL FOR API)
-|--------------------------------------------------------------------------
-*/
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
-
-// Handle preflight OPTIONS request
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-*/
-
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');

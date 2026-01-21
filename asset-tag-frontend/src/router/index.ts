@@ -7,6 +7,7 @@ import AssetTag from '@/views/AssetTag.vue'
 import Tag from '@/views/Tag.vue'
 import CategoryList from '@/views/CategoryList.vue'
 import AssetList from '@/views/AssetList.vue'
+import ServerAccount from '@/views/ServerAccount.vue'
 const routes = [
   {
     path: '/',
@@ -57,6 +58,12 @@ const routes = [
     name: 'AssetList',
     meta: { requiresAuth: true },
     component: AssetList
+  },
+  {
+    path: '/server_account_list',
+    name: 'ServerAccount',
+    meta: { requiresAuth: true },
+    component: ServerAccount
   }
 ]
 

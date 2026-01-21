@@ -20,6 +20,7 @@ interface AssetForm {
   supplier?: string
   modelNumber?: string
   specs?: string
+  asset_info?: string
   remarks?: string
   dateDeployed?: string
   categoryId?: number
@@ -36,6 +37,7 @@ interface Asset {
   supplier?: string
   model_number?: string
   specs?: string
+  asset_info?: string
   remarks?: string
   date_deployed?: string
   category_id?: number
@@ -72,6 +74,7 @@ const form = ref<AssetForm>({
   supplier: '',
   modelNumber: '',
   specs: '',
+  asset_info: '',
   remarks: '',
   dateDeployed: '',
   categoryId: undefined,
@@ -125,6 +128,7 @@ const emptyForm = (): AssetForm => ({
   supplier: '',
   modelNumber: '',
   specs: '',
+  asset_info: '',
   remarks: '',
   dateDeployed: '',
   categoryId: undefined,
@@ -140,6 +144,7 @@ const mapFormToPayload = (f: AssetForm) => ({
   supplier: f.supplier,
   model_number: f.modelNumber,
   specs: f.specs,
+  asset_info: f.asset_info,
   remarks: f.remarks,
   date_deployed: f.dateDeployed,
   category_id: f.categoryId,
@@ -192,6 +197,7 @@ const openEditModal = (asset: Asset) => {
     supplier: asset.supplier,
     modelNumber: asset.model_number,
     specs: asset.specs,
+    asset_info: asset.asset_info,
     remarks: asset.remarks,
     dateDeployed: asset.date_deployed,
     categoryId: asset.category_id,
@@ -525,6 +531,13 @@ initData()
           <label class="block text-sm font-medium mb-1">Specification <span class="text-red-500">*</span></label>
           <textarea v-model="form.specs" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y" :class="errors.specs ? 'border-red-500' : 'border-gray-300'"></textarea>
           <p v-if="errors.specs" class="text-xs text-red-500 mt-1">{{ errors.specs }}</p>
+        </div>
+
+        <!-- Asset info  -->
+
+        <div class="col-span-1 md:col-span-2">
+          <label class="block text-sm font-medium mb-1">Asset info</label>
+          <textarea v-model="form.specs" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y"></textarea>
         </div>
 
         <!-- Remarks -->

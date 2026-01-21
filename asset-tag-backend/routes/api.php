@@ -4,6 +4,7 @@ use App\Http\Controllers\AssetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\ServerAccountController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -31,3 +32,6 @@ Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
 Route::get('/dashboard/summary', [AssetController::class, 'summary']);
 
 Route::apiResource('assets', AssetController::class);
+
+// Server Accounts
+Route::apiResource('servers', ServerAccountController::class);

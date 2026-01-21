@@ -7,37 +7,48 @@ use App\Http\Controllers\CompanyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| CORS HEADERS (GLOBAL FOR API)
+|--------------------------------------------------------------------------
+*/
+header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+*/
+
 Route::get('/user', function (Request $request) {
     return $request->user();
-
 })->middleware('auth:sanctum');
 
-// User registration
+// Auth
 Route::post('/register', [AuthController::class, 'register']);
-
-// User login
 Route::post('/login', [AuthController::class, 'login']);
 
-
+// Categories
 Route::apiResource('categories', CategoryController::class);
-Route::get('/categories', [CategoryController::class, 'index']);
-Route::post('/categories', [CategoryController::class, 'store']);
-Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
 
-
+// Companies
 Route::apiResource('companies', CompanyController::class);
 
-Route::get('/assets', [AssetController::class, 'index']);
+// Assets
 Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
 Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
-Route::get('/asset_list', [AssetController::class,'assetList']);
+Route::get('/asset_list', [AssetController::class, 'assetList']);
 Route::get('/asset_list_all', [AssetController::class, 'assetListAll']);
-
-
 Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);
-
-Route::apiResource('assets', AssetController::class);
-
+Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
 Route::get('/dashboard/summary', [AssetController::class, 'summary']);
 
-Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
+Route::apiResource('assets', AssetController::class);

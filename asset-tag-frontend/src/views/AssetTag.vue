@@ -537,7 +537,7 @@ initData()
 
         <div class="col-span-1 md:col-span-2">
           <label class="block text-sm font-medium mb-1">Asset info</label>
-          <textarea v-model="form.specs" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y"></textarea>
+          <textarea v-model="form.asset_info" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y"></textarea>
         </div>
 
         <!-- Remarks -->

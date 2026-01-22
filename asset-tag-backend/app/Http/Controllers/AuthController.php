@@ -9,14 +9,20 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    /**
+     * Register a new user
+     */
     public function register(Request $request)
     {
-        // Add validation including password confirmation
+        // Validate input
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:6',
-            'password_confirmation' => 'required|string|same:password', // Fix here
+            'password_confirmation' => 'required|string|same:password',
+        ], [
+            'username.required' => 'Username is required.',
+            'password_confirmation.same' => 'Password confirmation does not match.',
         ]);
 
         if ($validator->fails()) {
@@ -29,7 +35,7 @@ class AuthController extends Controller
         // Create the user
         $user = User::create([
             'name' => $request->name,
-            'email' => $request->email,
+            'username' => $request->username,
             'password' => Hash::make($request->password),
         ]);
 
@@ -38,34 +44,53 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'User registered successfully',
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+            ],
             'token' => $token,
         ], 201);
     }
 
+    /**
+     * Login user
+     */
     public function login(Request $request)
     {
+        // Validate input
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
+            'username' => 'required|string',
             'password' => 'required|string|min:6',
+        ], [
+            'username.required' => 'Username is required.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => $validator->errors()->first()], 422);
+            return response()->json([
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        $user = User::where('email', $request->email)->first();
+        // Find user by username
+        $user = User::where('username', $request->username)->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid Email or Password'], 401);
+            return response()->json(['message' => 'Invalid Username or Password'], 401);
         }
 
+        // Generate token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
             'token' => $token,
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+            ],
         ]);
     }
 }

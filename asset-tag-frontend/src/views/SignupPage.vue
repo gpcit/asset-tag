@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 const router = useRouter();
 
 const name = ref('');
-const email = ref('');
+const username = ref('');
 const password = ref('');
 const passwordConfirmation = ref('');
 const loading = ref(false);
@@ -16,7 +16,7 @@ const signup = async () => {
   loading.value = true;
 
   try {
-    const data = await register(name.value, email.value, password.value, passwordConfirmation.value);
+    const data = await register(name.value, username.value, password.value, passwordConfirmation.value);
 
     // Save token & user
     localStorage.setItem('token', data.token);
@@ -79,10 +79,10 @@ const signup = async () => {
 
         <!-- Email -->
         <div>
-          <label class="block text-sm font-medium text-gray-900 dark:text-gray-100">Email</label>
+          <label class="block text-sm font-medium text-gray-900 dark:text-gray-100">Username</label>
           <input
-            v-model="email"
-            type="email"
+            v-model="username"
+            type="text"
             required
             class="mt-2 block w-full rounded-md bg-white px-3 py-2 text-gray-900 outline-gray-300 focus:outline-green-600 dark:bg-white/5 dark:text-white"
           />

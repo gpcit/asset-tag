@@ -20,7 +20,6 @@ interface Asset {
   date_deployed?: string
   category?: { name: string }
   company?: { name: string }
-  // This matches your Laravel 'with' structure
   asset_code?: { unique_code: string } 
   assetCode?: { unique_code: string }
 }
@@ -149,12 +148,10 @@ onMounted(() => {
 
   <div class="p-6 max-w-4xl mx-auto">
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold">Asset Management</h2>
+      <h2 class="text-2xl font-bold">Asset Tagging</h2>
       <button
         @click="exportToExcel"
-        class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 shadow flex items-center gap-2"
-      >
-        📥 Export All to Excel
+        class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 shadow flex items-center gap-2">📥 Export All to Excel
       </button>
     </div>
 

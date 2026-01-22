@@ -19,6 +19,9 @@ const dataList = ref<ServerAccount[]>([])
 const loading = ref(false)
 const showModal = ref(false)
 const isEditMode = ref(false)
+const searchQuery = ref('')
+const selectedCompany = ref('')
+const companies = ref<{id: number, name: string}[]>([])
 
 // Pagination
 const currentPage = ref(1)
@@ -34,16 +37,22 @@ const formData = ref<ServerAccount>({
   remarks: '',
 })
 
+// For server-side search, filteredData just returns dataList
+// (filtering happens on backend)
+const filteredData = computed(() => {
+  return dataList.value
+})
+
 // Computed: Paginated data
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value
   const end = start + itemsPerPage.value
-  return dataList.value.slice(start, end)
+  return filteredData.value.slice(start, end)
 })
 
 // Computed: Total pages
 const totalPages = computed(() => {
-  return Math.ceil(dataList.value.length / itemsPerPage.value)
+  return Math.ceil(filteredData.value.length / itemsPerPage.value)
 })
 
 // Computed: Visible page numbers
@@ -84,6 +93,11 @@ const visiblePages = computed(() => {
   return pages
 })
 
+// Watch search query and fetch from server
+const handleSearch = () => {
+  fetchData()
+}
+
 // Pagination methods
 const goToPage = (page: number) => {
   if (page >= 1 && page <= totalPages.value) {
@@ -103,11 +117,30 @@ const prevPage = () => {
   }
 }
 
-// Fetch data from API
+// Fetch companies for filter dropdown
+const fetchCompanies = async () => {
+  try {
+    const { data } = await api.get('/companies')
+    companies.value = data
+  } catch (error) {
+    console.error('Error fetching companies:', error)
+  }
+}
+
+// Fetch data from API with search
 const fetchData = async () => {
   loading.value = true
   try {
-    const { data } = await api.get('/servers')
+    const params = new URLSearchParams()
+    if (searchQuery.value.trim()) {
+      params.append('search', searchQuery.value.trim())
+    }
+    if (selectedCompany.value) {
+      params.append('company_id', selectedCompany.value)
+    }
+    
+    const url = params.toString() ? `/servers?${params.toString()}` : '/servers'
+    const { data } = await api.get(url)
     dataList.value = data
     currentPage.value = 1 // Reset to first page when fetching new data
   } catch (error) {
@@ -217,6 +250,7 @@ const deleteAccount = async (item: ServerAccount) => {
 
 // Load data on mount
 onMounted(() => {
+  fetchCompanies()
   fetchData()
 })
 </script>
@@ -236,6 +270,47 @@ onMounted(() => {
         </svg>
         Add New Account
       </button>
+    </div>
+
+    <!-- Search Bar and Filters -->
+    <div class="mb-4 flex gap-3">
+      <div class="flex-1 relative">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          v-model="searchQuery"
+          @input="handleSearch"
+          type="text"
+          class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          placeholder="Search by name or department"
+        />
+        <button
+          v-if="searchQuery"
+          @click="searchQuery = ''; handleSearch()"
+          class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Company Filter -->
+      <div class="w-48">
+        <select
+          v-model="selectedCompany"
+          @change="handleSearch"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+        >
+          <option value="">All Companies</option>
+          <option v-for="company in companies" :key="company.id" :value="company.id">
+            {{ company.name }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -294,7 +369,7 @@ onMounted(() => {
                 <svg class="w-16 h-16 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                 </svg>
-                No accounts found. Click "Add New Account" to get started.
+                {{ searchQuery ? 'No accounts match your search.' : 'No accounts found. Click "Add New Account" to get started.' }}
               </td>
             </tr>
           </tbody>
@@ -302,7 +377,7 @@ onMounted(() => {
       </div>
       
       <!-- Pagination -->
-      <div v-if="dataList.length > 0" class="bg-white px-4 py-3 border-t border-gray-200">
+      <div v-if="filteredData.length > 0" class="bg-white px-4 py-3 border-t border-gray-200">
         <div class="flex items-center justify-between text-sm">
           <!-- Items per page -->
           <div class="flex items-center gap-2">
@@ -363,7 +438,7 @@ onMounted(() => {
 
           <!-- Info -->
           <div class="text-gray-600">
-            {{ ((currentPage - 1) * itemsPerPage) + 1 }}-{{ Math.min(currentPage * itemsPerPage, dataList.length) }} of {{ dataList.length }}
+            {{ ((currentPage - 1) * itemsPerPage) + 1 }}-{{ Math.min(currentPage * itemsPerPage, filteredData.length) }} of {{ filteredData.length }}
           </div>
         </div>
       </div>

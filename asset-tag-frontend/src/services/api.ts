@@ -1,6 +1,6 @@
 import axios, { AxiosError } from 'axios'
 
-const API_URL = 'http://localhost:8000/api' // change this in prod to 1-
+const API_URL = 'http://localhost:8000/api' // change this in prod to 10.20.20.10
 
 const api = axios.create({
   baseURL: API_URL,

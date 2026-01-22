@@ -107,6 +107,7 @@ class AssetController extends Controller
             'invoice_date' => 'nullable|date',
             'invoice_number' => 'nullable|string|max:255',
             'date_deployed' => 'nullable|date',
+            'date_returned'=> 'nullable|date',
             'remarks' => 'nullable|string',
         ]);
 
@@ -129,6 +130,7 @@ class AssetController extends Controller
             'invoice_date' => 'nullable|date',
             'invoice_number' => 'nullable|string|max:255',
             'date_deployed' => 'nullable|date',
+            'date_returned'=> 'nullable|date',
             'remarks' => 'nullable|string',
             'is_active' => 'sometimes|boolean', // Add this line!
         ]);

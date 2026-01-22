@@ -23,8 +23,10 @@ interface AssetForm {
   asset_info?: string
   remarks?: string
   dateDeployed?: string
+  dateReturned?: string
   categoryId?: number
   companyId?: number
+  is_active?: boolean
 }
 
 interface Asset {
@@ -40,8 +42,10 @@ interface Asset {
   asset_info?: string
   remarks?: string
   date_deployed?: string
+  date_returned?: string           // backend column
   category_id?: number
   company_id?: number
+  is_active?: boolean             // made optional to avoid TS errors
   company?: Company
   category?: Category
   uniqueCode?: string
@@ -79,12 +83,16 @@ const form = ref<AssetForm>({
   dateDeployed: '',
   categoryId: undefined,
   companyId: undefined,
+  is_active: true,
 })
 
 const errors = ref<Record<string, string>>({})
 const userStore = useUserStore()
 const loading = ref(true)
 
+
+// Status Filter
+const statusFilter = ref<'active' | 'inactive' | 'all'>('active');
 /* ===== PAGINATION ===== */
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
@@ -93,16 +101,26 @@ const filteredAssets = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
 
   return userStore.assets.filter(asset => {
-    const matchesCategory =
-      selectedCategory.value === '' || asset.category_id === selectedCategory.value
-    const matchesCompany =
-      selectedCompany.value === '' || asset.company_id === selectedCompany.value
-    const matchesSearch =
-      !query ||
-      (asset.person_in_charge?.toLowerCase().includes(query)) ||
-      (asset.company?.name?.toLowerCase().includes(query))
-    
-    return matchesCategory && matchesCompany && matchesSearch
+    // Status filter
+    if (statusFilter.value === 'active' && !asset.is_active) return false
+    if (statusFilter.value === 'inactive' && asset.is_active) return false
+
+    // Category filter
+    if (selectedCategory.value !== '' && asset.category_id !== selectedCategory.value) return false
+
+    // Company filter
+    if (selectedCompany.value !== '' && asset.company_id !== selectedCompany.value) return false
+
+    // Search filter
+    if (
+      query &&
+      !asset.person_in_charge?.toLowerCase().includes(query) &&
+      !asset.company?.name?.toLowerCase().includes(query)
+    ) {
+      return false
+    }
+
+    return true
   })
 })
 
@@ -133,6 +151,7 @@ const emptyForm = (): AssetForm => ({
   dateDeployed: '',
   categoryId: undefined,
   companyId: undefined,
+  is_active: true,
 })
 
 const mapFormToPayload = (f: AssetForm) => ({
@@ -146,9 +165,11 @@ const mapFormToPayload = (f: AssetForm) => ({
   specs: f.specs,
   asset_info: f.asset_info,
   remarks: f.remarks,
+  date_returned: f.dateReturned,
   date_deployed: f.dateDeployed,
   category_id: f.categoryId,
   company_id: f.companyId,
+  is_active: f.is_active,
 })
 
 /* ===== VALIDATION ===== */
@@ -200,8 +221,10 @@ const openEditModal = (asset: Asset) => {
     asset_info: asset.asset_info,
     remarks: asset.remarks,
     dateDeployed: asset.date_deployed,
+    dateReturned: asset.date_returned,
     categoryId: asset.category_id,
     companyId: asset.company_id,
+    is_active: asset.is_active, 
   }
   errors.value = {}
   showCreateModal.value = true
@@ -369,6 +392,16 @@ initData()
           <option value="">All Categories</option>
           <option v-for="cat in userStore.categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
         </select>
+      </div>
+
+      <!-- Status  -->
+       <div class="mb-4">
+          <label class="block text-sm font-medium mb-1">Status</label>
+          <select v-model="statusFilter" class="w-full border rounded px-3 py-2 text-sm">
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
       </div>
 
       <!-- Company -->
@@ -546,21 +579,31 @@ initData()
           <textarea v-model="form.remarks" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
         </div>
 
-        <!-- Date Deployed -->
-        <div>
-          <label class="block text-sm font-medium mb-1">Date Deployed <span class="text-red-500">*</span></label>
-          <input v-model="form.dateDeployed" type="date" class="w-full border px-2 py-1 rounded text-sm" :class="errors.dateDeployed ? 'border-red-500' : 'border-gray-300'" />
-          <p v-if="errors.dateDeployed" class="text-xs text-red-500 mt-1">{{ errors.dateDeployed }}</p>
-        </div>
+        
+      <!-- Date Deployed -->
+      <div>
+        <label class="block text-sm font-medium mb-1">Date Deployed <span class="text-red-500">*</span></label>
+        <input v-model="form.dateDeployed" type="date" class="w-full border px-2 py-1 rounded text-sm" :class="errors.dateDeployed ? 'border-red-500' : 'border-gray-300'" />
+        <p v-if="errors.dateDeployed" class="text-xs text-red-500 mt-1">{{ errors.dateDeployed }}</p>
       </div>
+
+      <!-- Date Returned (Edit Mode Only) -->
+      <div v-if="isEditing">
+        <label class="block text-sm font-medium mb-1">Date Returned</label>
+        <input v-model="form.dateReturned" type="date" class="w-full border px-2 py-1 rounded text-sm" />
+      </div>
+    </div>
 
       <div class="flex justify-end gap-2 mt-4">
         <button @click="showCreateModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Cancel</button>
+        <button 
+          @click="form.is_active = !form.is_active"
+          :class="form.is_active ? 'bg-emerald-600 text-white' : 'bg-red-500 text-white-700'"
+          class="px-4 py-1 rounded text-sm font-semibold transition">{{ form.is_active ? 'Active' : 'Inactive' }}</button>
         <button @click="submitForm" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">Submit</button>
       </div>
     </div>
   </div>
-
   <!-- Tagging Modal -->
    <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50" @click.self="showTagModal = false">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">

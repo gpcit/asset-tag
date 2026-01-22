@@ -34,6 +34,7 @@ class AssetInventory extends Model
         'invoice_date' => 'date',
         'invoice_date' => 'date:Y-m-d',
         'date_deployed' => 'date:Y-m-d',
+        'date_returned' => 'date:Y-m-d',
         'is_active' => 'boolean',
     ];
 

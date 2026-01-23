@@ -263,7 +263,7 @@ onMounted(() => {
       <h2 class="text-3xl font-bold text-gray-800">Server Accounts</h2>
       <button
         @click="openCreateModal"
-        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2"
+        class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition flex items-center gap-2"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -284,7 +284,7 @@ onMounted(() => {
           v-model="searchQuery"
           @input="handleSearch"
           type="text"
-          class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+          class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
           placeholder="Search by name or department"
         />
         <button
@@ -303,7 +303,7 @@ onMounted(() => {
         <select
           v-model="selectedCompany"
           @change="handleSearch"
-          class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-900 focus:border-transparent transition"
+          class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-900 focus:border-transparent transition"
         >
           <option value="">All Companies</option>
           <option v-for="company in companies" :key="company.id" :value="company.id">
@@ -315,7 +315,7 @@ onMounted(() => {
 
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
-      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-green-900"></div>
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-900"></div>
       <p class="text-gray-500 mt-4">Loading accounts...</p>
     </div>
 
@@ -343,7 +343,7 @@ onMounted(() => {
               <td class="px-6 py-4 whitespace-nowrap">
                 <span 
                   :class="item.status === 'Active' 
-                    ? 'px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800' 
+                    ? 'px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800' 
                     : 'px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800'">
                   {{ item.status }}
                 </span>
@@ -384,7 +384,7 @@ onMounted(() => {
             <select
               v-model="itemsPerPage"
               @change="currentPage = 1"
-              class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
+              class="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
             >
               <option :value="5">5</option>
               <option :value="10">10</option>
@@ -415,7 +415,7 @@ onMounted(() => {
                 @click="typeof page === 'number' ? goToPage(page) : null"
                 :disabled="page === '...'"
                 :class="page === currentPage
-                  ? 'min-w-[1.75rem] px-2 py-1 text-xs rounded bg-green-600 text-white font-medium'
+                  ? 'min-w-[1.75rem] px-2 py-1 text-xs rounded bg-emerald-600 text-white font-medium'
                   : page === '...'
                   ? 'min-w-[1.75rem] px-2 py-1 text-xs text-gray-400 cursor-default'
                   : 'min-w-[1.75rem] px-2 py-1 text-xs rounded text-gray-700 hover:bg-gray-100 transition'"
@@ -469,7 +469,7 @@ onMounted(() => {
             <input
               v-model="formData.name"
               type="text"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
               placeholder="Enter name"
             />
           </div>
@@ -482,7 +482,7 @@ onMounted(() => {
             <input
               v-model="formData.department"
               type="text"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
               placeholder="Enter department"
             />
           </div>
@@ -495,7 +495,7 @@ onMounted(() => {
             <input
               v-model="formData.server_user"
               type="text"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
               placeholder="Enter server user"
             />
           </div>
@@ -509,7 +509,7 @@ onMounted(() => {
             <input
               v-model="formData.server_password"
               type="password"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
               placeholder="Enter server password"
             />
           </div>
@@ -521,7 +521,7 @@ onMounted(() => {
             </label>
             <select
               v-model="formData.status"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
             >
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
@@ -534,7 +534,7 @@ onMounted(() => {
             <textarea
               v-model="formData.remarks"
               rows="3"
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition resize-none"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition resize-none"
               placeholder="Enter remarks (optional)"
             ></textarea>
           </div>
@@ -550,7 +550,7 @@ onMounted(() => {
           </button>
           <button
             @click="saveAccount"
-            class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium shadow-sm"
+            class="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium shadow-sm"
           >
             {{ isEditMode ? 'Update' : 'Create' }}
           </button>

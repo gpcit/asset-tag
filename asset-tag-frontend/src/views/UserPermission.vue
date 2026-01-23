@@ -82,7 +82,7 @@ onMounted(fetchUsers)
               <span
                 class="px-3 py-1 rounded-full text-xs font-semibold"
                 :class="u.role === 'admin'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-gray-200 text-gray-700'"
               >
                 {{ u.role.toUpperCase() }}
@@ -101,7 +101,7 @@ onMounted(fetchUsers)
                 <div
                   class="w-11 h-6 rounded-full transition"
                   :class="u.role === 'admin'
-                    ? 'bg-green-500'
+                    ? 'bg-emerald-500'
                     : 'bg-gray-400'"
                 >
                   <div

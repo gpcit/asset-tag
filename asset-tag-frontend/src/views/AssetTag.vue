@@ -6,34 +6,37 @@ import { useUserStore } from '@/stores/user'
 import api from '@/services/api'
 import QRCode from 'qrcode'
 import html2canvas from 'html2canvas'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 
+// ------------------
 // Router
+// ------------------
 const router = useRouter()
 
-// user (local storage)
-
+// ------------------
+// User
+// ------------------
 interface User {
-    id?: number
-      name?: string
-        username?: string
-          role?: 'admin' | 'staff'
-          }
+  id?: number
+  name?: string
+  username?: string
+  role?: 'admin' | 'staff'
+}
 
-          const user = ref<User>(
-            JSON.parse(localStorage.getItem('user') || '{}')
-            )
+const user = ref<User>(JSON.parse(localStorage.getItem('user') || '{}'))
 
-            // Watch localStorage in case user changes (optional)
-            watch(
-              () => localStorage.getItem('user'),
-                (val) => {
-                    if (val) user.value = JSON.parse(val)
-                      }
-                      )
-/* ===== TYPES ===== */
+watch(
+  () => localStorage.getItem('user'),
+  (val) => {
+    if (val) user.value = JSON.parse(val)
+  }
+)
+
+// ------------------
+// Types
+// ------------------
 interface Category { id: number; name: string }
-interface Company { id: number; name: string, logo?: string | null, code?: string }
+interface Company { id: number; name: string; logo?: string | null; code?: string }
 
 interface AssetForm {
   personInCharge: string
@@ -66,10 +69,10 @@ interface Asset {
   asset_info?: string
   remarks?: string
   date_deployed?: string
-  date_returned?: string           // backend column
+  date_returned?: string
   category_id?: number
   company_id?: number
-  is_active?: boolean             // made optional to avoid TS errors
+  is_active?: boolean
   company?: Company
   category?: Category
   uniqueCode?: string
@@ -79,14 +82,16 @@ interface TaggingAsset extends Asset {
   uniqueCode: string
 }
 
-/* ===== STATE ===== */
+// ------------------
+// State
+// ------------------
 const showCreateModal = ref(false)
 const isEditing = ref(false)
 const editingAssetId = ref<number | null>(null)
 
 const selectedCategory = ref<number | ''>('')
 const selectedCompany = ref<number | ''>('')
-const searchQuery = ref('') // <-- Search bar state
+const searchQuery = ref('')
 
 const showTagModal = ref(false)
 const taggingAsset = ref<TaggingAsset | null>(null)
@@ -113,17 +118,16 @@ const form = ref<AssetForm>({
 const errors = ref<Record<string, string>>({})
 const userStore = useUserStore()
 const loading = ref(true)
+const statusFilter = ref<'active' | 'inactive' | 'all'>('active')
 
-
-// Status Filter
-const statusFilter = ref<'active' | 'inactive' | 'all'>('active');
-/* ===== PAGINATION ===== */
+// ------------------
+// Pagination
+// ------------------
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
 const filteredAssets = computed<Asset[]>(() => {
   const query = searchQuery.value.trim().toLowerCase()
-
   return userStore.assets.filter((asset: Asset) => {
     // Status filter
     if (statusFilter.value === 'active' && !asset.is_active) return false
@@ -140,14 +144,12 @@ const filteredAssets = computed<Asset[]>(() => {
       const matchesPerson = asset.person_in_charge?.toLowerCase().includes(query)
       const matchesCompany = asset.company?.name?.toLowerCase().includes(query)
       const matchesAssetInfo = asset.asset_info?.toLowerCase().includes(query)
-
       if (!matchesPerson && !matchesCompany && !matchesAssetInfo) return false
     }
 
     return true
   })
 })
-
 
 const paginatedAssets = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value
@@ -161,7 +163,9 @@ watch([selectedCategory, selectedCompany, searchQuery], () => {
   currentPage.value = 1
 })
 
-/* ===== HELPERS ===== */
+// ------------------
+// Form helpers
+// ------------------
 const emptyForm = (): AssetForm => ({
   personInCharge: '',
   department: '',
@@ -190,14 +194,16 @@ const mapFormToPayload = (f: AssetForm) => ({
   specs: f.specs,
   asset_info: f.asset_info,
   remarks: f.remarks,
-  date_returned: f.dateReturned,
   date_deployed: f.dateDeployed,
+  date_returned: f.dateReturned,
   category_id: f.categoryId,
   company_id: f.companyId,
   is_active: f.is_active,
 })
 
-/* ===== VALIDATION ===== */
+// ------------------
+// Validation
+// ------------------
 const validateForm = () => {
   errors.value = {}
 
@@ -216,11 +222,13 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0
 }
 
-/* ===== ACTIONS ===== */
+// ------------------
+// Form actions
+// ------------------
 const resetFilters = () => {
   selectedCategory.value = ''
   selectedCompany.value = ''
-  searchQuery.value = '' // <-- clear search too
+  searchQuery.value = ''
 }
 
 const openCreateModal = () => {
@@ -255,6 +263,19 @@ const openEditModal = (asset: Asset) => {
   showCreateModal.value = true
 }
 
+// Auto set dateReturned when toggling is_active
+watch(() => form.value.is_active, (newVal, oldVal) => {
+  if (oldVal !== undefined) {
+    if (!newVal && !form.value.dateReturned) {
+      form.value.dateReturned = new Date().toISOString().split('T')[0]
+    }
+    if (newVal && form.value.dateReturned) {
+      form.value.dateReturned = ''
+    }
+  }
+})
+
+// Submit form
 const submitForm = async () => {
   if (!validateForm()) {
     Swal.fire({ icon: 'error', title: 'Validation Error', text: 'Please fix the highlighted fields.' })
@@ -270,6 +291,7 @@ const submitForm = async () => {
       await api.post('/assets', payload)
       Swal.fire({ icon: 'success', title: 'Created Successfully!', timer: 2000, showConfirmButton: false })
     }
+
     showCreateModal.value = false
     form.value = emptyForm()
     errors.value = {}
@@ -278,20 +300,8 @@ const submitForm = async () => {
     await userStore.fetchAssets()
   } catch (err: any) {
     console.error('Failed to submit asset', err)
-    
     let errorMessage = 'Failed to submit asset. Please try again.'
-    
-    if (err.response?.data?.message) {
-      errorMessage = err.response.data.message
-    } else if (err.response?.status === 500 && err.response?.data) {
-      const errorText = JSON.stringify(err.response.data)
-      if (errorText.includes('foreign key constraint') || errorText.includes('company_id')) {
-        errorMessage = 'Selected company does not exist. Please refresh and try again.'
-      } else if (errorText.includes('category_id')) {
-        errorMessage = 'Selected category does not exist. Please refresh and try again.'
-      }
-    }
-    
+    if (err.response?.data?.message) errorMessage = err.response.data.message
     Swal.fire({ icon: 'error', title: 'Oops...', text: errorMessage })
   }
 }
@@ -318,21 +328,22 @@ const deleteAsset = async (asset: Asset) => {
   }
 }
 
+// ------------------
+// Initialize
+// ------------------
 const initData = async () => {
-  if (!userStore.assets.length) {
-    loading.value = true
-    await userStore.initializeData()
-    loading.value = false
-  } else {
-    loading.value = false
-  }
+  loading.value = true
+  await userStore.initializeData()
+  loading.value = false
 }
 
-/* ===== TAGGING MODAL ===== */
+// ------------------
+// Tagging modal & QR
+// ------------------
 const openTagModal = async (asset: Asset) => {
   showTagModal.value = true
   try {
-    const companyCode = asset.company?.code ?? 'NO-CODE'
+    const companyCode = asset.company?.code?.trim() || 'NO-CODE'
     const uniqueNumber = asset.id.toString().padStart(6, '0')
     const assetCode = `${companyCode}-${uniqueNumber}`
 
@@ -377,6 +388,9 @@ const downloadImage = async () => {
   }
 }
 
+// ------------------
+// Company Logo helper
+// ------------------
 const getCompanyLogo = (company: Company) => {
   if (!company?.logo) return new URL('../assets/uploads/placeholder.png', import.meta.url).href
   try {
@@ -386,6 +400,9 @@ const getCompanyLogo = (company: Company) => {
   }
 }
 
+// ------------------
+// Initialize data
+// ------------------
 initData()
 </script>
 
@@ -608,8 +625,7 @@ initData()
       <!-- Date Deployed -->
       <div>
         <label class="block text-sm font-medium mb-1">Date Deployed <span class="text-red-500">*</span></label>
-        <input v-model="form.dateDeployed" type="date" class="w-full border px-2 py-1 rounded text-sm" :class="errors.dateDeployed ? 'border-red-500' : 'border-gray-300'" />
-        <p v-if="errors.dateDeployed" class="text-xs text-red-500 mt-1">{{ errors.dateDeployed }}</p>
+        <input v-model="form.dateDeployed"type="date"class="w-full border px-2 py-1 rounded text-sm":class="errors.dateDeployed ? 'border-red-500' : 'border-gray-300'":readonly="!!form.dateReturned"/><p v-if="errors.dateDeployed" class="text-xs text-red-500 mt-1">{{ errors.dateDeployed }}</p>
       </div>
 
       <!-- Date Returned (Edit Mode Only) -->

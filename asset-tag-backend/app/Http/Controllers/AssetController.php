@@ -132,10 +132,23 @@ class AssetController extends Controller
             'date_deployed' => 'nullable|date',
             'date_returned'=> 'nullable|date',
             'remarks' => 'nullable|string',
-            'is_active' => 'sometimes|boolean', // Add this line!
+            'is_active' => 'sometimes|boolean',
         ]);
-        
+
+        // Auto-set date_returned if marking inactive
+        if (array_key_exists('is_active', $data)) {
+            if (!$data['is_active'] && !$asset->date_returned) {
+                $data['date_returned'] = now()->format('Y-m-d'); // YYYY-MM-DD
+            }
+
+            // Optional: clearing date_returned if reactivating
+            if ($data['is_active'] && $asset->date_returned) {
+                $data['date_returned'] = null;
+            }
+        }
+
         $asset->update($data);
+
         return response()->json($asset);
     }
 

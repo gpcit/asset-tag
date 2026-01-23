@@ -8,29 +8,74 @@ import {
   MenuItem,
   MenuItems,
 } from '@headlessui/vue'
-import { Bars3Icon, BellIcon, XMarkIcon } from '@heroicons/vue/24/outline'
-import { RouterLink } from 'vue-router'
-import { useRouter } from 'vue-router'
+import { Bars3Icon, XMarkIcon } from '@heroicons/vue/24/outline'
+import { RouterLink, useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
 
+// -------------------------
+// Router
+// -------------------------
 const router = useRouter()
 
-const navigation = [
-  { name: 'Dashboard', to: '/dashboard' },
-  { name: 'Asset', to: '/asset' },
-  { name: 'Asset Tag', to: '/tagging' },
-  { name: 'Category List', to: '/category' },
-  {name: 'Server Accounts', to: '/server_account_list'},
-  {name: 'User Permission', to: '/user_permission'}
+// -------------------------
+// User (from localStorage)
+// -------------------------
+interface User {
+    id?: number
+      name?: string
+        username?: string
+          role?: 'admin' | 'staff'
+          }
+
+          const user = ref<User>(
+            JSON.parse(localStorage.getItem('user') || '{}')
+            )
+
+            // Watch localStorage in case user changes (optional)
+            watch(
+              () => localStorage.getItem('user'),
+                (val) => {
+                    if (val) user.value = JSON.parse(val)
+                      }
+                      )
+
+
+// -------------------------
+// Full navigation list
+// -------------------------
+interface NavItem {
+  name: string
+  to: string
+  roles: ('admin' | 'staff')[]
+}
+
+const allNavigation: NavItem[] = [
+  { name: 'Dashboard', to: '/dashboard', roles: ['admin', 'staff'] },
+  { name: 'Asset', to: '/asset', roles: ['admin', 'staff'] },
+  { name: 'Asset Tag', to: '/tagging', roles: ['admin', 'staff'] },
+  { name: 'Category List', to: '/category', roles: ['admin', 'staff'] },
+  { name: 'Server Accounts', to: '/server_account_list', roles: ['admin'] },
+  { name: 'User Permission', to: '/user_permission', roles: ['admin'] },
 ]
 
+// -------------------------
+// Filter navigation based on role
+// -------------------------
+const navigation = computed(() =>
+  user.value.role
+    ? allNavigation.filter(item => item.roles.includes(user.value.role!))
+    : []
+)
+
+// -------------------------
+// Logout function
+// -------------------------
 const logout = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('user')
   router.replace('/')
 }
-
 </script>
-
 <template>
   <Disclosure as="nav" class="relative bg-emerald-600" v-slot="{ open }">
     <div class="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">

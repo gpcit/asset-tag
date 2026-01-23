@@ -7,13 +7,13 @@ export const login = async (username: string, password: string) => {
 
 export const register = async (
   name: string,
-  email: string,
+  username: string,
   password: string,
   password_confirmation: string
 ) => {
   const response = await api.post('/register', {
     name,
-    email,
+    username,
     password,
     password_confirmation,
   })

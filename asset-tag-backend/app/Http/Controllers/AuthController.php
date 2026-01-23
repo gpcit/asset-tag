@@ -2,93 +2,97 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Tymon\JWTAuth\Facades\JWTAuth;
-use Tymon\JWTAuth\Exceptions\JWTException;
 
 class AuthController extends Controller
 {
-    /**
-     * Register a new user
-     */
+    // -------------------------
+    // Register (always STAFF)
+    // -------------------------
     public function register(Request $request)
     {
-        // Validate input
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'username' => 'required|string|max:255|unique:users',
-            'password' => 'required|string|min:6',
-            'password_confirmation' => 'required|string|same:password',
+        $request->validate([
+            'name' => 'required|string',
+            'username' => 'required|string|unique:users',
+            'password' => 'required|min:6|confirmed',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        // Create the user
         $user = User::create([
             'name' => $request->name,
             'username' => $request->username,
             'password' => Hash::make($request->password),
+            'role' => 'staff',
         ]);
 
-        // Generate JWT token
-        $token = JWTAuth::fromUser($user);
-
         return response()->json([
-            'message' => 'User registered successfully',
             'user' => $user,
-            'token' => $token,
+            'token' => JWTAuth::fromUser($user),
         ], 201);
     }
 
-    /**
-     * Login user
-     */
+    // -------------------------
+    // Login
+    // -------------------------
     public function login(Request $request)
     {
-        $credentials = $request->only('username', 'password');
-
-        // Validate input
-        $validator = Validator::make($credentials, [
-            'username' => 'required|string',
-            'password' => 'required|string|min:6',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => $validator->errors()->first(),
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            if (!$token = JWTAuth::attempt($credentials)) {
-                return response()->json(['message' => 'Invalid credentials'], 401);
-            }
-        } catch (JWTException $e) {
-            return response()->json(['message' => 'Could not create token'], 500);
+        if (!$token = JWTAuth::attempt($request->only('username', 'password'))) {
+            return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
         return response()->json([
-            'message' => 'Login successful',
             'token' => $token,
-            'user' => auth()->user()
+            'user' => auth()->user(),
         ]);
     }
 
-    /**
-     * Logout user
-     */
-    public function logout(Request $request)
+    // -------------------------
+    // Current user
+    // -------------------------
+    public function me()
+    {
+        return auth()->user();
+    }
+
+    // -------------------------
+    // Logout
+    // -------------------------
+    public function logout()
     {
         JWTAuth::invalidate(JWTAuth::getToken());
-        return response()->json(['message' => 'Logged out successfully']);
+        return response()->json(['message' => 'Logged out']);
+    }
+
+    // -------------------------
+    // ADMIN: list users
+    // -------------------------
+    public function index()
+    {
+        return User::select('id', 'name', 'username', 'role')->get();
+    }
+    public function users()
+    {
+        return User::select('id', 'name', 'username', 'role')->get();
+    }
+
+    // -------------------------
+    // ADMIN: update role
+    // -------------------------
+    public function updateRole(Request $request, User $user)
+    {
+        $request->validate([
+            'role' => ['required', Rule::in(['admin', 'staff'])],
+        ]);
+
+        if ($user->id === auth()->id()) {
+            return response()->json(['message' => 'Cannot change your own role'], 403);
+        }
+
+        $user->update(['role' => $request->role]);
+
+        return response()->json(['message' => 'Role updated', 'user' => $user]);
     }
 }

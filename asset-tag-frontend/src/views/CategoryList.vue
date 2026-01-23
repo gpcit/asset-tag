@@ -1,8 +1,30 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import api from '@/services/api'
 import Swal from 'sweetalert2'
+import { RouterLink, useRouter } from 'vue-router'
+
+const router = useRouter()
+
+interface User {
+    id?: number
+      name?: string
+        username?: string
+          role?: 'admin' | 'staff'
+          }
+
+          const user = ref<User>(
+            JSON.parse(localStorage.getItem('user') || '{}')
+            )
+
+            // Watch localStorage in case user changes (optional)
+            watch(
+              () => localStorage.getItem('user'),
+                (val) => {
+                    if (val) user.value = JSON.parse(val)
+                      }
+                      )
 
 interface Category {
   id: number
@@ -121,7 +143,7 @@ onMounted(fetchCategories)
         <span class="text-gray-800">{{ c.name }}</span>
 
         <!-- Delete button with confirmation -->
-        <button
+        <button v-if="user.role === 'admin'"
           @click="confirmDelete(c.id, c.name)"
           class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 hover:text-red-800 transition font-medium"
         >

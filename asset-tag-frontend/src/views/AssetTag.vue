@@ -6,7 +6,31 @@ import { useUserStore } from '@/stores/user'
 import api from '@/services/api'
 import QRCode from 'qrcode'
 import html2canvas from 'html2canvas'
+import { RouterLink, useRouter } from 'vue-router'
 
+// Router
+const router = useRouter()
+
+// user (local storage)
+
+interface User {
+    id?: number
+      name?: string
+        username?: string
+          role?: 'admin' | 'staff'
+          }
+
+          const user = ref<User>(
+            JSON.parse(localStorage.getItem('user') || '{}')
+            )
+
+            // Watch localStorage in case user changes (optional)
+            watch(
+              () => localStorage.getItem('user'),
+                (val) => {
+                    if (val) user.value = JSON.parse(val)
+                      }
+                      )
 /* ===== TYPES ===== */
 interface Category { id: number; name: string }
 interface Company { id: number; name: string, logo?: string | null, code?: string }
@@ -452,8 +476,8 @@ initData()
             <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.specs || '-' }}</td>
             <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
-              <button @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️ Edit</button>
-              <button @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️ Delete</button>
+              <button  @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️ Edit</button>
+              <button v-if="user.role === 'admin'" @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️ Delete</button>
               <button @click="openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️ Add Tag</button>
             </td>
           </tr>

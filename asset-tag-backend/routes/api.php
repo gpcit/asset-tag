@@ -23,6 +23,11 @@ use Illuminate\Support\Facades\Route;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/asset_list_all', [AssetController::class, 'assetListAll']);
+Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);
+Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
+Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
+
 
 // Any authenticated user
 Route::middleware('auth:api')->group(function () {

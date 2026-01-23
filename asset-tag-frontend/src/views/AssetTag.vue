@@ -7,6 +7,8 @@ import api from '@/services/api'
 import QRCode from 'qrcode'
 import html2canvas from 'html2canvas'
 import { useRouter } from 'vue-router'
+import { saveAs } from 'file-saver'
+import * as XLSX from 'xlsx'
 
 // ------------------
 // Router
@@ -97,6 +99,7 @@ const showTagModal = ref(false)
 const taggingAsset = ref<TaggingAsset | null>(null)
 const qrCodeDataUrl = ref<string>('')
 const captureRef = ref<HTMLElement | null>(null)
+const showExportModal = ref(false)
 
 const form = ref<AssetForm>({
   personInCharge: '',
@@ -225,6 +228,55 @@ const validateForm = () => {
 // ------------------
 // Form actions
 // ------------------
+
+// Export to excel
+const allFields = [
+  { key: 'person_in_charge', label: 'Person In-charge' },
+  { key: 'department', label: 'Department' },
+  { key: 'invoice_number', label: 'Invoice Number' },
+  { key: 'invoice_date', label: 'Invoice Date' },
+  { key: 'cost', label: 'Cost' },
+  { key: 'model_number', label: 'Model Number' },
+  { key: 'supplier', label: 'Supplier' },
+  { key: 'asset_info', label: 'Asset Info' },
+  { key: 'specs', label: 'Specifications' },
+  { key: 'date_deployed', label: 'Date Deployed' },
+  { key: 'category_id', label: 'Category ID' },
+  { key: 'company_id', label: 'Company ID' },
+  { key: 'remarks', label: 'Remarks' },
+]
+
+const exportFields = ref<string[]>([])
+
+const exportExcel = () => {
+  if (!exportFields.value.length) {
+    Swal.fire({ icon: 'warning', title: 'No Fields Selected', text: 'Please select at least one field.' })
+    return
+  }
+
+  // Map assets to only include selected fields
+  const dataToExport = filteredAssets.value.map(asset => {
+    const row: Record<string, any> = {}
+    exportFields.value.forEach(key => {
+      if (key === 'category_id') row['Category'] = asset.category?.name ?? ''
+      else if (key === 'company_id') row['Company'] = asset.company?.name ?? ''
+      else row[key] = (asset as any)[key] ?? ''
+    })
+    return row
+  })
+
+  // Create worksheet
+  const ws = XLSX.utils.json_to_sheet(dataToExport)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Assets')
+
+  // Write and save
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+  const blob = new Blob([wbout], { type: 'application/octet-stream' })
+  saveAs(blob, 'assets_export.xlsx')
+
+  showExportModal.value = false
+}
 const resetFilters = () => {
   selectedCategory.value = ''
   selectedCompany.value = ''
@@ -457,6 +509,7 @@ initData()
 
       <div class="flex flex-col gap-2">
         <button @click="openCreateModal" class="w-full bg-emerald-600 text-white py-2 rounded">Create New Asset</button>
+        <button v-if="user.role === 'admin'" @click="showExportModal = true" class="px-3 py-1 bg-emerald-600 text-white rounded"> 📥 Export to Excel</button>
         <button v-if="selectedCategory || selectedCompany" @click="resetFilters" class="w-full bg-gray-200 py-2 rounded">Clear Filters</button>
       </div>
     </div>
@@ -665,4 +718,34 @@ initData()
       </div>
     </div>
   </div>
+ <!-- Export to Excel modal -->
+  <div v-if="showExportModal"class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+
+    <!-- modal -->
+    <div class="relative bg-white rounded-2xl shadow-xl p-6 w-96 max-w-full z-50">
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-800">Select Fields to Export</h2>
+        <button @click="showExportModal = false"class="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
+      </div>
+
+      <!-- Field Checkboxes -->
+      <div class="max-h-64 overflow-y-auto border rounded p-3 mb-4 bg-gray-50">
+        <div v-for="field in allFields":key="field.key" class="flex items-center mb-2 last:mb-0">
+          <input type="checkbox"v-model="exportFields":value="field.key"class="mr-2 h-4 w-4 text-green-500 border-gray-300 rounded focus:ring-green-400"/>
+          <label class="text-gray-700 text-sm select-none">{{ field.label }}</label>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end space-x-3">
+        <button @click="showExportModal = false"class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">Cancel</button>
+        <button @click="exportExcel"class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors">Export
+        </button>
+      </div>
+    </div>
+</div>
+
+
+
 </template>

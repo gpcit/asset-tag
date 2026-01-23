@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Tymon\JWTAuth\Facades\JWTAuth;
+use Tymon\JWTAuth\Exceptions\JWTException;
 
 class AuthController extends Controller
 {
@@ -20,9 +22,6 @@ class AuthController extends Controller
             'username' => 'required|string|max:255|unique:users',
             'password' => 'required|string|min:6',
             'password_confirmation' => 'required|string|same:password',
-        ], [
-            'username.required' => 'Username is required.',
-            'password_confirmation.same' => 'Password confirmation does not match.',
         ]);
 
         if ($validator->fails()) {
@@ -39,16 +38,12 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // Generate token
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // Generate JWT token
+        $token = JWTAuth::fromUser($user);
 
         return response()->json([
             'message' => 'User registered successfully',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-            ],
+            'user' => $user,
             'token' => $token,
         ], 201);
     }
@@ -58,12 +53,12 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        $credentials = $request->only('username', 'password');
+
         // Validate input
-        $validator = Validator::make($request->all(), [
+        $validator = Validator::make($credentials, [
             'username' => 'required|string',
             'password' => 'required|string|min:6',
-        ], [
-            'username.required' => 'Username is required.',
         ]);
 
         if ($validator->fails()) {
@@ -73,24 +68,27 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Find user by username
-        $user = User::where('username', $request->username)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid Username or Password'], 401);
+        try {
+            if (!$token = JWTAuth::attempt($credentials)) {
+                return response()->json(['message' => 'Invalid credentials'], 401);
+            }
+        } catch (JWTException $e) {
+            return response()->json(['message' => 'Could not create token'], 500);
         }
-
-        // Generate token
-        $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
             'token' => $token,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-            ],
+            'user' => auth()->user()
         ]);
+    }
+
+    /**
+     * Logout user
+     */
+    public function logout(Request $request)
+    {
+        JWTAuth::invalidate(JWTAuth::getToken());
+        return response()->json(['message' => 'Logged out successfully']);
     }
 }

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import { login as loginService } from '@/services/auth'
 import { useUserStore } from '@/stores/user'
+import { initAutoLogout } from '@/services/autoLogout' // ← ADD THIS
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -14,27 +15,28 @@ const loading = ref(false)
 
 const login = async () => {
   loading.value = true
-
   try {
     const data = await loginService(username.value, password.value)
-
+    
     // Save token & user in localStorage
     localStorage.setItem('token', data.token)
     localStorage.setItem('user', JSON.stringify(data.user))
-
+    
     // Update Pinia store
-    userStore.setUser(data) // <-- send both user and token
-    await userStore.initializeData() // <-- fetch assets, companies, categories, dashboard
-
+    userStore.setUser(data)
+    await userStore.initializeData()
+    
+    // Initialize auto-logout with the new token
+    initAutoLogout() // ← ADD THIS
+    
     await Swal.fire({
       icon: 'success',
       title: 'Login Successful!',
       text: `Welcome back, ${data.user.name || 'User'}!`,
       confirmButtonText: 'Go to Dashboard'
     })
-
+    
     router.replace('/dashboard')
-
   } catch (err: any) {
     Swal.fire({
       icon: 'error',
@@ -64,10 +66,8 @@ const login = async () => {
         Sign in to your account
       </h2>
     </div>
-
     <div class="mt-6 sm:mx-auto sm:w-full sm:max-w-sm">
       <form class="space-y-6" @submit.prevent="login">
-
         <!-- Username -->
         <div>
           <label class="block text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -83,7 +83,6 @@ const login = async () => {
                    dark:bg-white/5 dark:text-white"
           />
         </div>
-
         <!-- Password -->
         <div>
           <label class="block text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -99,7 +98,6 @@ const login = async () => {
                    dark:bg-white/5 dark:text-white"
           />
         </div>
-
         <!-- Submit -->
         <button
           type="submit"
@@ -111,9 +109,8 @@ const login = async () => {
           {{ loading ? 'Signing in…' : 'Sign in' }}
         </button>
       </form>
-
       <p class="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-        Don’t have an account?
+        Don't have an account?
         <RouterLink
           to="/signup"
           class="font-semibold text-green-600 hover:text-green-500"

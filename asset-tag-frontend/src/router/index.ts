@@ -8,6 +8,7 @@ import Tag from '@/views/Tag.vue'
 import CategoryList from '@/views/CategoryList.vue'
 import AssetList from '@/views/AssetList.vue'
 import ServerAccount from '@/views/ServerAccount.vue'
+import UserPermission from '@/views/UserPermission.vue'
 const routes = [
   {
     path: '/',
@@ -64,6 +65,12 @@ const routes = [
     name: 'ServerAccount',
     meta: { requiresAuth: true },
     component: ServerAccount
+  },
+  {
+    path: '/user_permission',
+    name: 'UserPermission',
+    meta: { requiresAuth: true },
+    component: UserPermission
   }
 ]
 

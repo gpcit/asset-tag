@@ -424,7 +424,7 @@ initData()
 
       <!-- Search Bar -->
       <div class="mb-4">
-        <input v-model="searchQuery" type="text" placeholder="Search by Person In-charge or Company" class="w-full border rounded px-3 py-2 text-sm"/>
+        <input v-model="searchQuery" type="text" placeholder="Search by Person In-charge, Company or Asset info" class="w-full border rounded px-3 py-2 text-sm"/>
       </div>
 
       <!-- Category -->

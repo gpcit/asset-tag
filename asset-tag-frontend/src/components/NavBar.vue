@@ -19,7 +19,8 @@ const navigation = [
   { name: 'Asset', to: '/asset' },
   { name: 'Asset Tag', to: '/tagging' },
   { name: 'Category List', to: '/category' },
-  {name: 'Server Accounts', to: '/server_account_list'}
+  {name: 'Server Accounts', to: '/server_account_list'},
+  {name: 'User Permission', to: '/user_permission'}
 ]
 
 const logout = () => {

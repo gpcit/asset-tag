@@ -121,10 +121,10 @@ const statusFilter = ref<'active' | 'inactive' | 'all'>('active');
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
-const filteredAssets = computed(() => {
+const filteredAssets = computed<Asset[]>(() => {
   const query = searchQuery.value.trim().toLowerCase()
 
-  return userStore.assets.filter(asset => {
+  return userStore.assets.filter((asset: Asset) => {
     // Status filter
     if (statusFilter.value === 'active' && !asset.is_active) return false
     if (statusFilter.value === 'inactive' && asset.is_active) return false
@@ -136,17 +136,18 @@ const filteredAssets = computed(() => {
     if (selectedCompany.value !== '' && asset.company_id !== selectedCompany.value) return false
 
     // Search filter
-    if (
-      query &&
-      !asset.person_in_charge?.toLowerCase().includes(query) &&
-      !asset.company?.name?.toLowerCase().includes(query)
-    ) {
-      return false
+    if (query) {
+      const matchesPerson = asset.person_in_charge?.toLowerCase().includes(query)
+      const matchesCompany = asset.company?.name?.toLowerCase().includes(query)
+      const matchesAssetInfo = asset.asset_info?.toLowerCase().includes(query)
+
+      if (!matchesPerson && !matchesCompany && !matchesAssetInfo) return false
     }
 
     return true
   })
 })
+
 
 const paginatedAssets = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value

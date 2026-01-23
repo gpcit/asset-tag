@@ -213,8 +213,8 @@ const validateForm = () => {
   if (!(form.value.personInCharge ?? '').trim()) errors.value.personInCharge = 'Person In-charge is required'
   if (!(form.value.department ?? '').trim()) errors.value.department = 'Department is required'
   if (!(form.value.invoiceNumber ?? '').trim()) errors.value.invoiceNumber = 'Invoice Number is required'
-  if (!form.value.invoiceDate) errors.value.invoiceDate = 'Invoice Date is required'
-  if (form.value.cost === undefined || form.value.cost === null || form.value.cost <= 0) errors.value.cost = 'Cost must be greater than 0'
+  // if (!form.value.invoiceDate) errors.value.invoiceDate = 'Invoice Date is required'
+  // if (form.value.cost === undefined || form.value.cost === null || form.value.cost <= 0) errors.value.cost = 'Cost must be greater than 0'
   if (!(form.value.supplier ?? '').trim()) errors.value.supplier = 'Supplier is required'
   if (!(form.value.modelNumber ?? '').trim()) errors.value.modelNumber = 'Model Number is required'
   if (!form.value.companyId) errors.value.companyId = 'Company is required'
@@ -608,16 +608,14 @@ initData()
 
         <!-- Invoice Date -->
         <div>
-          <label class="block text-sm font-medium mb-1">Invoice Date <span class="text-red-500">*</span></label>
-          <input v-model="form.invoiceDate" type="date" class="w-full border px-2 py-1 rounded text-sm" :class="errors.invoiceDate ? 'border-red-500' : 'border-gray-300'" />
-          <p v-if="errors.invoiceDate" class="text-xs text-red-500 mt-1">{{ errors.invoiceDate }}</p>
+          <label class="block text-sm font-medium mb-1">Invoice Date</label>
+          <input v-model="form.invoiceDate" type="date" class="w-full border px-2 py-1 rounded text-sm"/>
         </div>
 
         <!-- Cost -->
         <div>
-          <label class="block text-sm font-medium mb-1">Cost <span class="text-red-500">*</span></label>
-          <input v-model.number="form.cost" type="number" step="0.01" class="w-full border px-2 py-1 rounded text-sm" :class="errors.cost ? 'border-red-500' : 'border-gray-300'" />
-          <p v-if="errors.cost" class="text-xs text-red-500 mt-1">{{ errors.cost }}</p>
+          <label class="block text-sm font-medium mb-1">Cost</label>
+          <input v-model.number="form.cost" type="number" step="0.01" class="w-full border px-2 py-1 rounded text-sm" />
         </div>
 
         <!-- Supplier -->

@@ -8,7 +8,7 @@ import QRCode from 'qrcode'
 import html2canvas from 'html2canvas'
 import { useRouter } from 'vue-router'
 import { saveAs } from 'file-saver'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 
 // ------------------
 // Router
@@ -245,10 +245,16 @@ const allFields = [
   { key: 'company_id', label: 'Company' },
   { key: 'remarks', label: 'Remarks' },
 ]
-
 const exportFields = ref<string[]>([])
 
-const exportExcel = () => {
+const formatCellValue = (value: any): string => {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+const exportExcel = async () => {
   if (!exportFields.value.length) {
     Swal.fire({
       icon: 'warning',
@@ -257,36 +263,79 @@ const exportExcel = () => {
     })
     return
   }
-
-  const dataToExport = filteredAssets.value.map(asset => {
-    const row: Record<string, any> = {}
-
+  
+  // Create a new workbook
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Assets')
+  
+  // Get headers
+  const headers = exportFields.value.map(key => {
+    const field = allFields.find(f => f.key === key)
+    return field ? field.label : key
+  })
+  
+  // Add header row
+  worksheet.addRow(headers)
+  
+  // Style header row
+  worksheet.getRow(1).font = { bold: true }
+  worksheet.getRow(1).alignment = { vertical: 'top', wrapText: true }
+  
+  // Add data rows
+  filteredAssets.value.forEach(asset => {
+    const row: any[] = []
     exportFields.value.forEach(key => {
-      const field = allFields.find(f => f.key === key)
-      if (!field) return
-
+      let value
       if (key === 'category_id') {
-        row[field.label] = asset.category?.name ?? ''
+        value = formatCellValue(asset.category?.name)
       } else if (key === 'company_id') {
-        row[field.label] = asset.company?.name ?? ''
+        value = formatCellValue(asset.company?.name)
       } else {
-        row[field.label] = (asset as any)[key] ?? ''
+        value = formatCellValue((asset as any)[key])
+      }
+      
+      // Replace commas with line breaks
+      if (typeof value === 'string') {
+        value = value.split(',').map(s => s.trim()).join('\n')
+      }
+      
+      row.push(value)
+    })
+    worksheet.addRow(row)
+  })
+  
+  // Apply wrap text and alignment to all cells
+  worksheet.eachRow((row) => {
+    row.eachCell((cell) => {
+      cell.alignment = { 
+        vertical: 'top', 
+        wrapText: true 
       }
     })
-
-    return row
   })
-
-  const ws = XLSX.utils.json_to_sheet(dataToExport)
-  // helper
-  ws['!cols'] = autoFitColumns(dataToExport)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Assets')
-
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  const blob = new Blob([wbout], { type: 'application/octet-stream' })
+  
+  // Auto-fit columns
+  worksheet.columns.forEach((column) => {
+    if (!column) return
+    
+    let maxLength = 0
+    column.eachCell?.({ includeEmpty: true }, (cell) => {
+      const cellValue = cell.value ? cell.value.toString() : ''
+      const cellLength = cellValue.split('\n').reduce((max, line) => 
+        Math.max(max, line.length), 0
+      )
+      maxLength = Math.max(maxLength, cellLength)
+    })
+    column.width = Math.min(Math.max(maxLength + 2, 10), 50)
+  })
+  
+  // Generate Excel file
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { 
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+  })
   saveAs(blob, 'assets_export.xlsx')
-
+  
   showExportModal.value = false
 }
 

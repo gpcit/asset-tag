@@ -268,18 +268,41 @@ const exportExcel = async () => {
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('Assets')
   
+  // Add title
+  worksheet.mergeCells('A1', `${String.fromCharCode(65 + exportFields.value.length - 1)}1`)
+  worksheet.getCell('A1').value = 'Asset Management System'
+  worksheet.getCell('A1').font = { size: 40, bold: true }
+  worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
+  worksheet.getRow(1).height = 50
+  
+  // Add extraction date
+  const extractionDate = new Date().toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+  worksheet.mergeCells('A2', `${String.fromCharCode(65 + exportFields.value.length - 1)}2`)
+  worksheet.getCell('A2').value = `Extracted on: ${extractionDate}`
+  worksheet.getCell('A2').font = { size: 11, italic: true }
+  worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' }
+  worksheet.getRow(2).height = 20
+  
+  // Add empty row for spacing
+  worksheet.addRow([])
+  
   // Get headers
   const headers = exportFields.value.map(key => {
     const field = allFields.find(f => f.key === key)
     return field ? field.label : key
   })
   
-  // Add header row
+  // Add header row (now at row 4)
   worksheet.addRow(headers)
   
   // Style header row
-  worksheet.getRow(1).font = { bold: true }
-  worksheet.getRow(1).alignment = { vertical: 'top', wrapText: true }
+  const headerRow = worksheet.getRow(4)
+  headerRow.font = { bold: true }
+  headerRow.alignment = { vertical: 'top', wrapText: true }
   
   // Add data rows
   filteredAssets.value.forEach(asset => {
@@ -304,14 +327,16 @@ const exportExcel = async () => {
     worksheet.addRow(row)
   })
   
-  // Apply wrap text and alignment to all cells
-  worksheet.eachRow((row) => {
-    row.eachCell((cell) => {
-      cell.alignment = { 
-        vertical: 'top', 
-        wrapText: true 
-      }
-    })
+  // Apply wrap text and alignment to all data cells (starting from row 4)
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber >= 4) {
+      row.eachCell((cell) => {
+        cell.alignment = { 
+          vertical: 'top', 
+          wrapText: true 
+        }
+      })
+    }
   })
   
   // Auto-fit columns

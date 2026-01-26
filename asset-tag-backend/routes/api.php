@@ -7,19 +7,7 @@ use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\ServerAccountController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Public routes (no auth needed)
-| JWT authentication + role-based access control (admin/staff)
-|
-*/
 
-// -------------------------
-// Public routes
-// -------------------------
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);

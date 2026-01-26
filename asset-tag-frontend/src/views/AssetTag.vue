@@ -231,7 +231,7 @@ const validateForm = () => {
 
 // Export to excel
 const allFields = [
-  { key: 'person_in_charge', label: 'Person In-charge' },
+  { key: 'person_in_charge', label: 'Person In-charge'},
   { key: 'department', label: 'Department' },
   { key: 'invoice_number', label: 'Invoice Number' },
   { key: 'invoice_date', label: 'Invoice Date' },
@@ -241,8 +241,8 @@ const allFields = [
   { key: 'asset_info', label: 'Asset Info' },
   { key: 'specs', label: 'Specifications' },
   { key: 'date_deployed', label: 'Date Deployed' },
-  { key: 'category_id', label: 'Category ID' },
-  { key: 'company_id', label: 'Company ID' },
+  { key: 'category_id', label: 'Category' },
+  { key: 'company_id', label: 'Company' },
   { key: 'remarks', label: 'Remarks' },
 ]
 
@@ -250,33 +250,71 @@ const exportFields = ref<string[]>([])
 
 const exportExcel = () => {
   if (!exportFields.value.length) {
-    Swal.fire({ icon: 'warning', title: 'No Fields Selected', text: 'Please select at least one field.' })
+    Swal.fire({
+      icon: 'warning',
+      title: 'No Fields Selected',
+      text: 'Please select at least one field.',
+    })
     return
   }
 
-  // Map assets to only include selected fields
   const dataToExport = filteredAssets.value.map(asset => {
     const row: Record<string, any> = {}
+
     exportFields.value.forEach(key => {
-      if (key === 'category_id') row['Category'] = asset.category?.name ?? ''
-      else if (key === 'company_id') row['Company'] = asset.company?.name ?? ''
-      else row[key] = (asset as any)[key] ?? ''
+      const field = allFields.find(f => f.key === key)
+      if (!field) return
+
+      if (key === 'category_id') {
+        row[field.label] = asset.category?.name ?? ''
+      } else if (key === 'company_id') {
+        row[field.label] = asset.company?.name ?? ''
+      } else {
+        row[field.label] = (asset as any)[key] ?? ''
+      }
     })
+
     return row
   })
 
-  // Create worksheet
   const ws = XLSX.utils.json_to_sheet(dataToExport)
+  // helper
+  ws['!cols'] = autoFitColumns(dataToExport)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Assets')
 
-  // Write and save
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
   const blob = new Blob([wbout], { type: 'application/octet-stream' })
   saveAs(blob, 'assets_export.xlsx')
 
   showExportModal.value = false
 }
+
+// excel autp-fit helper
+const autoFitColumns = (jsonData: any[]) => {
+  const cols: { wch: number }[] = []
+
+  if (!jsonData.length) return cols
+
+  const keys = Object.keys(jsonData[0])
+
+  keys.forEach(key => {
+    let maxLength = key.length
+
+    jsonData.forEach(row => {
+      const value = row[key]
+      if (value != null) {
+        const length = value.toString().length
+        if (length > maxLength) maxLength = length
+      }
+    })
+
+    cols.push({ wch: maxLength + 2 }) // +2 for padding
+  })
+
+  return cols
+}
+
 const resetFilters = () => {
   selectedCategory.value = ''
   selectedCompany.value = ''

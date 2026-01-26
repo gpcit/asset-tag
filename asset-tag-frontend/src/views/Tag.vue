@@ -5,6 +5,7 @@ import Swal from 'sweetalert2'
 import NavBar from '@/components/NavBar.vue'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
+import ExcelJS from 'exceljs'
 
 interface Asset {
   id: number
@@ -98,20 +99,25 @@ const fetchAllAssetsWithUniqueCode = async () => {
 }
 
 /* ================= EXPORT TO EXCEL ================= */
-const exportToExcel = () => {
+const exportToExcel = async () => {
   if (!allAssets.value.length) {
     Swal.fire({ icon: 'info', title: 'No data', text: 'No assets with unique codes found.' })
     return
   }
-
+  
+  // Helper function to replace commas with line breaks
+  const formatValue = (val: any) => {
+    if (val === null || val === undefined) return '-'
+    const strVal = String(val)
+    return strVal.split(',').map(s => s.trim()).join('\n')
+  }
+  
   const worksheetData = allAssets.value.map(a => {
-    // Robust check for the unique code in the nested relationship
-    // Laravel usually returns 'asset_code' or 'assetCode'
     const codeValue = a.asset_code?.unique_code || 
                       a.assetCode?.unique_code || 
                       (a as any).unique_code || 
                       '-';
-
+    
     return {
       'Unique Code': codeValue,
       'Company': a.company?.name || '-',
@@ -124,18 +130,88 @@ const exportToExcel = () => {
       'Invoice Number': a.invoice_number || '-',
       'Invoice Date': a.invoice_date || '-',
       'Date Deployed': a.date_deployed || '-',
-      'Specifications': a.specs || '-',
-      'Remarks': a.remarks || '-',
+      'Specifications': formatValue(a.specs),
+      'Remarks': formatValue(a.remarks),
     }
   })
-
-  const worksheet = XLSX.utils.json_to_sheet(worksheetData)
-  const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Assets')
-
-  const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-  const blob = new Blob([excelBuffer], { type: 'application/octet-stream' })
-  saveAs(blob, 'Assets_Inventory.xlsx')
+  
+  // Get headers first (we need this for the merge cells calculation)
+  const headers = Object.keys(worksheetData[0] || {})
+  const lastColumn = String.fromCharCode(65 + headers.length - 1) // Calculate last column letter
+  
+  // Create workbook with ExcelJS
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Assets')
+  
+  // Add title
+  worksheet.mergeCells('A1', `${lastColumn}1`)
+  worksheet.getCell('A1').value = 'Asset Management System (TAGGING)'
+  worksheet.getCell('A1').font = { size: 40, bold: true }
+  worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
+  worksheet.getRow(1).height = 50
+  
+  // Add extraction date
+  const extractionDate = new Date().toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+  worksheet.mergeCells('A2', `${lastColumn}2`)
+  worksheet.getCell('A2').value = `Extracted on: ${extractionDate}`
+  worksheet.getCell('A2').font = { size: 11, italic: true }
+  worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' }
+  worksheet.getRow(2).height = 20
+  
+  // Add empty row for spacing
+  worksheet.addRow([])
+  
+  // Add header row (now at row 4)
+  worksheet.addRow(headers)
+  
+  // Style header row
+  const headerRow = worksheet.getRow(4)
+  headerRow.font = { bold: true }
+  headerRow.alignment = { vertical: 'top', wrapText: true }
+  
+  // Add data rows
+  worksheetData.forEach(row => {
+    const rowValues = headers.map(header => (row as any)[header])
+    worksheet.addRow(rowValues)
+  })
+  
+  // Apply wrap text and alignment to all data cells (starting from row 4)
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber >= 4) { // Only apply to header and data rows
+      row.eachCell((cell) => {
+        cell.alignment = { 
+          vertical: 'top', 
+          wrapText: true 
+        }
+      })
+    }
+  })
+  
+  // Auto-fit columns
+  worksheet.columns.forEach((column) => {
+    if (!column) return
+    
+    let maxLength = 0
+    column.eachCell?.({ includeEmpty: true }, (cell) => {
+      const cellValue = cell.value ? cell.value.toString() : ''
+      const cellLength = cellValue.split('\n').reduce((max, line) => 
+        Math.max(max, line.length), 0
+      )
+      maxLength = Math.max(maxLength, cellLength)
+    })
+    column.width = Math.min(Math.max(maxLength + 2, 10), 50)
+  })
+  
+  // Generate Excel file
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { 
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+  })
+  saveAs(blob, 'Asset_Tagging.xlsx')
 }
 
 onMounted(() => {

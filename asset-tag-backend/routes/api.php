@@ -15,7 +15,7 @@ Route::get('/asset_list_all', [AssetController::class, 'assetListAll']);
 Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);
 Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
 Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
-
+Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
 
 // Any authenticated user
 Route::middleware('auth:api')->group(function () {

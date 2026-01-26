@@ -245,7 +245,23 @@ const allFields = [
   { key: 'company_id', label: 'Company' },
   { key: 'remarks', label: 'Remarks' },
 ]
+
 const exportFields = ref<string[]>([])
+const selectAll = ref(false)
+
+// Toggle all checkboxes
+const toggleSelectAll = () => {
+  if (selectAll.value) {
+    exportFields.value = allFields.map(f => f.key)
+  } else {
+    exportFields.value = []
+  }
+}
+
+// Watch for manual changes to sync "Select All" checkbox
+watch(exportFields, (newVal) => {
+  selectAll.value = newVal.length === allFields.length
+}, { deep: true })
 
 const formatCellValue = (value: any): string => {
   if (value === null || value === undefined) return ''
@@ -829,30 +845,40 @@ initData()
     </div>
   </div>
  <!-- Export to Excel modal -->
-  <div v-if="showExportModal"class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-
-    <!-- modal -->
-    <div class="relative bg-white rounded-2xl shadow-xl p-6 w-96 max-w-full z-50">
-      <!-- Header -->
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold text-gray-800">Select Fields to Export</h2>
-        <button @click="showExportModal = false"class="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
-      </div>
-
-      <!-- Field Checkboxes -->
-      <div class="max-h-64 overflow-y-auto border rounded p-3 mb-4 bg-gray-50">
-        <div v-for="field in allFields":key="field.key" class="flex items-center mb-2 last:mb-0">
-          <input type="checkbox"v-model="exportFields":value="field.key"class="mr-2 h-4 w-4 text-green-500 border-gray-300 rounded focus:ring-green-400"/>
-          <label class="text-gray-700 text-sm select-none">{{ field.label }}</label>
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div class="flex justify-end space-x-3">
-        <button @click="showExportModal = false"class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">Cancel</button>
-        <button @click="exportExcel"class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors">Export
-        </button>
+<div v-if="showExportModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+  <!-- modal -->
+  <div class="relative bg-white rounded-2xl shadow-xl p-6 w-96 max-w-full z-50">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-semibold text-gray-800">Select Fields to Export</h2>
+      <button @click="showExportModal = false" class="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
+    </div>
+    
+    <!-- Select All Checkbox -->
+    <div class="mb-3 pb-3 border-b border-gray-200">
+      <label class="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors">
+        <input type="checkbox" v-model="selectAll"@change="toggleSelectAll"class="mr-2 h-5 w-5 text-green-500 border-gray-300 rounded focus:ring-green-400 cursor-pointer"/>
+        <span class="text-gray-800 font-semibold select-none">Select All Fields</span>
+      </label>
+    </div>
+    
+    <!-- Field Checkboxes -->
+    <div class="max-h-64 overflow-y-auto border rounded p-3 mb-4 bg-gray-50">
+      <div v-for="field in allFields" :key="field.key" class="flex items-center mb-2 last:mb-0">
+        <input type="checkbox"v-model="exportFields":value="field.key"class="mr-2 h-4 w-4 text-green-500 border-gray-300 rounded focus:ring-green-400 cursor-pointer"/>
+        <label class="text-gray-700 text-sm select-none cursor-pointer">{{ field.label }}</label>
       </div>
     </div>
+    
+    <!-- Actions -->
+    <div class="flex justify-end space-x-3">
+      <button @click="showExportModal = false"class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+        Cancel
+      </button>
+      <button @click="exportExcel"class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors">
+        Export
+      </button>
+    </div>
+  </div>
 </div>
 </template>

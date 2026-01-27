@@ -97,10 +97,9 @@ const downloadImage = async () => {
     })
     const dataUrl = canvas.toDataURL('image/png')
     const link = document.createElement('a')
-    const companyCode = taggingAsset.value.company?.code?.replace(/\s+/g, '_') ?? 'NO-CODE'
     const uniqueCode = taggingAsset.value.uniqueCode
     link.href = dataUrl
-    link.download = `${companyCode}_${uniqueCode}.png`
+    link.download = `${uniqueCode}.png`
     link.click()
     
     if (!isReprint.value) {

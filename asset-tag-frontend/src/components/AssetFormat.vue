@@ -15,6 +15,7 @@ interface Asset {
     logo?: string
   }
   person_in_charge?: string
+  department?: string
   specs?: string
   asset_code?: { unique_code: string }
 }
@@ -72,7 +73,14 @@ const generateTag = async (asset: Asset) => {
     
     taggingAsset.value = { ...asset, uniqueCode: assetCode }
     
-    const qrText = assetCode
+    // Change this part to include all information
+    const qrText = 
+      `Unique Code: ${assetCode}\n` +
+      `Company: ${asset.company?.name ?? 'No Company'}\n` +
+      `Category: ${asset.category?.name ?? 'No Category'}\n` +
+      `Person In-charge: ${asset.person_in_charge ?? 'Unknown'}\n` +
+      `Department: ${asset.department ?? 'N/A'}`
+    
     qrCodeDataUrl.value = await QRCode.toDataURL(qrText, {
       width: 300,
       margin: 2,

@@ -37,7 +37,7 @@ const openTagModal = async (asset: Asset) => {
     Swal.fire({
       icon: 'info',
       title: 'Tag Already Exists',
-      text: `This asset already has a tag: ${existingCode}. Please use the "Reprint Tag" option in the Asset Tagging page.`,
+      text: `This asset already has a tag: ${existingCode}. Please use the "Reprint Tag" option in the Asset Tag page.`,
       confirmButtonColor: '#2d6b54'
     })
     return
@@ -100,33 +100,57 @@ const downloadImage = async () => {
   
   try {
     const canvas = await html2canvas(captureRef.value, { 
-      scale: 3, 
+      scale: 2, 
       backgroundColor: '#ffffff'
     })
-    const dataUrl = canvas.toDataURL('image/png')
-    const link = document.createElement('a')
-    const uniqueCode = taggingAsset.value.uniqueCode
-    link.href = dataUrl
-    link.download = `${uniqueCode}.png`
-    link.click()
     
-    if (!isReprint.value) {
-      await api.post('/assets/unique-code', {
-        asset_id: taggingAsset.value.id,
-        unique_code: uniqueCode,
-      })
-      
-      emit('tagCreated', taggingAsset.value.id, uniqueCode)
+    const targetWidthCm = 6.4
+    const targetHeightCm = 3.8
+    const cmToPixel = 55 // comeback to this need adjusting
+    
+    const targetWidth = Math.round(targetWidthCm * cmToPixel)
+    const targetHeight = Math.round(targetHeightCm * cmToPixel)
+    
+    const resizedCanvas = document.createElement('canvas')
+    resizedCanvas.width = targetWidth
+    resizedCanvas.height = targetHeight
+    
+    const ctx = resizedCanvas.getContext('2d')
+    if (ctx) {
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, targetWidth, targetHeight)
+      ctx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
     }
     
-    Swal.fire({ 
-      icon: 'success', 
-      title: isReprint.value ? 'Tag Reprinted!' : 'Downloaded & Unique Code Saved!', 
-      timer: 1500, 
-      showConfirmButton: false 
-    })
+    resizedCanvas.toBlob(async (blob) => {
+      if (!blob) return
+      
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const uniqueCode = taggingAsset.value!.uniqueCode!
+      link.href = url
+      link.download = `${uniqueCode}.png`
+      link.click()
+      URL.revokeObjectURL(url)
+      
+      if (!isReprint.value) {
+        await api.post('/assets/unique-code', {
+          asset_id: taggingAsset.value!.id,
+          unique_code: uniqueCode,
+        })
+        emit('tagCreated', taggingAsset.value!.id, uniqueCode)
+      }
+      
+      Swal.fire({ 
+        icon: 'success', 
+        title: isReprint.value ? 'Tag Reprinted!' : 'Downloaded & Unique Code Saved!', 
+        timer: 1500, 
+        showConfirmButton: false 
+      })
+      
+      closeModal()
+    }, 'image/png')
     
-    closeModal()
   } catch (err) {
     console.error('Error capturing or saving:', err)
     Swal.fire({ 

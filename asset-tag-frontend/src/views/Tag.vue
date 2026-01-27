@@ -6,6 +6,7 @@ import NavBar from '@/components/NavBar.vue'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import ExcelJS from 'exceljs'
+import AssetFormat from '@/components/AssetFormat.vue'
 
 interface Asset {
   id: number
@@ -20,9 +21,8 @@ interface Asset {
   remarks?: string
   date_deployed?: string
   category?: { name: string }
-  company?: { name: string }
-  asset_code?: { unique_code: string } 
-  assetCode?: { unique_code: string }
+  company?: { name: string; code: string; logo?: string }
+  asset_code?: { unique_code: string }
 }
 
 const searchCode = ref('')
@@ -30,8 +30,8 @@ const foundAsset = ref<Asset | null>(null)
 const suggestions = ref<string[]>([])
 const loading = ref(false)
 const allAssets = ref<Asset[]>([])
+const tagModalRef = ref<InstanceType<typeof AssetFormat> | null>(null)
 
-/* ================= SEARCH BY UNIQUE CODE ================= */
 const searchUniqueCode = async (code?: string) => {
   const query = code || searchCode.value.trim()
   if (!query) return
@@ -41,13 +41,10 @@ const searchUniqueCode = async (code?: string) => {
   suggestions.value = []
 
   try {
-    // Matches your route: Route::get('/assets/by-unique-code', ...)
     const res = await api.get('/assets/by-unique-code', {
       params: { unique_code: query }
     })
 
-    // In your PHP controller, you return: ['unique_code' => ..., 'asset' => ...]
-    // We store it so the UI displays correctly
     foundAsset.value = {
       ...res.data.asset,
       asset_code: { unique_code: res.data.unique_code }
@@ -65,7 +62,6 @@ const searchUniqueCode = async (code?: string) => {
   }
 }
 
-/* ================= FETCH SUGGESTIONS ================= */
 const fetchSuggestions = async () => {
   const query = searchCode.value.trim()
   if (!query) {
@@ -87,25 +83,28 @@ const selectSuggestion = async (code: string) => {
   await searchUniqueCode(code)
 }
 
-/* ================= FETCH ALL ASSETS FOR EXPORT ================= */
+const reprintTag = () => {
+  if (foundAsset.value) {
+    tagModalRef.value?.openReprintModal(foundAsset.value)
+  }
+}
+
 const fetchAllAssetsWithUniqueCode = async () => {
   try {
-    // Matches your controller: $query->whereHas('assetCode')
     const res = await api.get('/assets', { params: { has_unique_code: true } })
     allAssets.value = res.data
+    console.log('Fetched assets:', allAssets.value.length)
   } catch (err) {
     console.error('Fetch Error:', err)
   }
 }
 
-/* ================= EXPORT TO EXCEL ================= */
 const exportToExcel = async () => {
   if (!allAssets.value.length) {
     Swal.fire({ icon: 'info', title: 'No data', text: 'No assets with unique codes found.' })
     return
   }
   
-  // Helper function to replace commas with line breaks
   const formatValue = (val: any) => {
     if (val === null || val === undefined) return '-'
     const strVal = String(val)
@@ -113,10 +112,7 @@ const exportToExcel = async () => {
   }
   
   const worksheetData = allAssets.value.map(a => {
-    const codeValue = a.asset_code?.unique_code || 
-                      a.assetCode?.unique_code || 
-                      (a as any).unique_code || 
-                      '-';
+    const codeValue = a.asset_code?.unique_code || '-'
     
     return {
       'Unique Code': codeValue,
@@ -135,22 +131,18 @@ const exportToExcel = async () => {
     }
   })
   
-  // Get headers first (we need this for the merge cells calculation)
   const headers = Object.keys(worksheetData[0] || {})
-  const lastColumn = String.fromCharCode(65 + headers.length - 1) // Calculate last column letter
+  const lastColumn = String.fromCharCode(65 + headers.length - 1)
   
-  // Create workbook with ExcelJS
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('Assets')
   
-  // Add title
   worksheet.mergeCells('A1', `${lastColumn}1`)
   worksheet.getCell('A1').value = 'Asset Management System (TAGGING)'
   worksheet.getCell('A1').font = { size: 40, bold: true }
   worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
   worksheet.getRow(1).height = 50
   
-  // Add extraction date
   const extractionDate = new Date().toLocaleString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -162,26 +154,21 @@ const exportToExcel = async () => {
   worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' }
   worksheet.getRow(2).height = 20
   
-  // Add empty row for spacing
   worksheet.addRow([])
   
-  // Add header row (now at row 4)
   worksheet.addRow(headers)
   
-  // Style header row
   const headerRow = worksheet.getRow(4)
   headerRow.font = { bold: true }
   headerRow.alignment = { vertical: 'top', wrapText: true }
   
-  // Add data rows
   worksheetData.forEach(row => {
     const rowValues = headers.map(header => (row as any)[header])
     worksheet.addRow(rowValues)
   })
   
-  // Apply wrap text and alignment to all data cells (starting from row 4)
   worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber >= 4) { // Only apply to header and data rows
+    if (rowNumber >= 4) {
       row.eachCell((cell) => {
         cell.alignment = { 
           vertical: 'top', 
@@ -191,7 +178,6 @@ const exportToExcel = async () => {
     }
   })
   
-  // Auto-fit columns
   worksheet.columns.forEach((column) => {
     if (!column) return
     
@@ -206,7 +192,6 @@ const exportToExcel = async () => {
     column.width = Math.min(Math.max(maxLength + 2, 10), 50)
   })
   
-  // Generate Excel file
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], { 
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
@@ -265,7 +250,7 @@ onMounted(() => {
       <div class="flex justify-between items-start border-b pb-4 mb-4">
         <div>
           <h3 class="text-xl font-bold text-gray-800">
-            {{ foundAsset.asset_code?.unique_code || foundAsset.assetCode?.unique_code }}
+            {{ foundAsset.asset_code?.unique_code }}
           </h3>
           <p class="text-emerald-600 font-medium">{{ foundAsset.company?.name || 'No Company' }}</p>
         </div>
@@ -275,7 +260,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
         <p><span class="text-gray-500">Person In-charge:</span> {{ foundAsset.person_in_charge }}</p>
         <p><span class="text-gray-500">Department:</span> {{ foundAsset.department }}</p>
         <p><span class="text-gray-500">Category:</span> {{ foundAsset.category?.name || '-' }}</p>
@@ -283,10 +268,21 @@ onMounted(() => {
         <p><span class="text-gray-500">Model:</span> {{ foundAsset.model_number || '-' }}</p>
         <p><span class="text-gray-500">Cost:</span> ₱{{ foundAsset.cost ?? '0' }}</p>
       </div>
+
+      <div class="flex justify-end pt-4 border-t">
+        <button
+          @click="reprintTag"
+          class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg shadow flex items-center gap-2 transition"
+        >
+          🏷️ Reprint Tag
+        </button>
+      </div>
     </div>
 
     <div v-else-if="loading" class="text-center text-gray-400 py-10">
       Searching database...
     </div>
+
+    <AssetFormat ref="tagModalRef" />
   </div>
 </template>

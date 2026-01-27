@@ -4,12 +4,12 @@ import { ref, computed, watch } from 'vue'
 import Swal from 'sweetalert2'
 import { useUserStore } from '@/stores/user'
 import api from '@/services/api'
-import QRCode from 'qrcode'
-import html2canvas from 'html2canvas'
+// import QRCode from 'qrcode'
+// import html2canvas from 'html2canvas'
 import { useRouter } from 'vue-router'
 import { saveAs } from 'file-saver'
 import ExcelJS from 'exceljs'
-
+import AssetFormat from '@/components/AssetFormat.vue'
 // ------------------
 // Router
 // ------------------
@@ -98,8 +98,10 @@ const searchQuery = ref('')
 const showTagModal = ref(false)
 const taggingAsset = ref<TaggingAsset | null>(null)
 const qrCodeDataUrl = ref<string>('')
-const captureRef = ref<HTMLElement | null>(null)
+// const captureRef = ref<HTMLElement | null>(null)
 const showExportModal = ref(false)
+const tagModalRef = ref<InstanceType<typeof AssetFormat> | null>(null)
+
 
 const form = ref<AssetForm>({
   personInCharge: '',
@@ -517,68 +519,74 @@ const initData = async () => {
   loading.value = false
 }
 
+const handleTagCreated = async (assetId: number, uniqueCode: string) => {
+  // Refresh the asset list to get updated data with the new unique code
+  await userStore.fetchAssets()
+}
+
 // ------------------
 // Tagging modal & QR
 // ------------------
-const openTagModal = async (asset: Asset) => {
-  showTagModal.value = true
-  try {
-    const companyCode = asset.company?.code?.trim() || 'NO-CODE'
-    const uniqueNumber = asset.id.toString().padStart(6, '0')
-    const assetCode = `${companyCode}-${uniqueNumber}`
+// const openTagModal = async (asset: Asset) => {
+//   showTagModal.value = true
+//   try {
+//     const companyCode = asset.company?.code?.trim() || 'NO-CODE'
+//     const uniqueNumber = asset.id.toString().padStart(6, '0')
+//     const assetCode = `${companyCode}-${uniqueNumber}`
 
-    taggingAsset.value = { ...asset, uniqueCode: assetCode }
+//     taggingAsset.value = { ...asset, uniqueCode: assetCode }
 
-    const qrText = 
-      `Category: ${asset.category?.name ?? 'No Category'}\n` +
-      `Company: ${asset.company?.name ?? 'No Company'}\n` +
-      `Person In-charge: ${asset.person_in_charge ?? 'Unknown'}\n` +
-      `Specs: ${asset.specs ?? '-'}`
+//     const qrText = 
+//       `Category: ${asset.category?.name ?? 'No Category'}\n` +
+//       `Company: ${asset.company?.name ?? 'No Company'}\n` +
+//       `Person In-charge: ${asset.person_in_charge ?? 'Unknown'}\n` +
+//       `Specs: ${asset.specs ?? '-'}`
 
-    qrCodeDataUrl.value = await QRCode.toDataURL(qrText)
-  } catch (err) {
-    console.error('QR generation failed', err)
-    qrCodeDataUrl.value = ''
-  }
-}
+//     qrCodeDataUrl.value = await QRCode.toDataURL(qrText)
+//   } catch (err) {
+//     console.error('QR generation failed', err)
+//     qrCodeDataUrl.value = ''
+//   }
+// }
 
-const downloadImage = async () => {
-  if (!captureRef.value || !taggingAsset.value) return;
+// const downloadImage = async () => {
+//   if (!captureRef.value || !taggingAsset.value) return;
 
-  try {
-    const canvas = await html2canvas(captureRef.value, { scale: 2, backgroundColor: '#ffffff' })
-    const dataUrl = canvas.toDataURL('image/png')
+//   try {
+//     const canvas = await html2canvas(captureRef.value, { scale: 2, backgroundColor: '#ffffff' })
+//     const dataUrl = canvas.toDataURL('image/png')
 
-    const link = document.createElement('a')
-    const companyCode = taggingAsset.value?.company?.code?.replace(/\s+/g, '_') ?? 'NO-CODE'
-    const uniqueCode = taggingAsset.value?.uniqueCode ?? 'TAG'
-    link.href = dataUrl
-    link.download = `${companyCode}_${uniqueCode}.png`
-    link.click()
+//     const link = document.createElement('a')
+//     const companyCode = taggingAsset.value?.company?.code?.replace(/\s+/g, '_') ?? 'NO-CODE'
+//     const uniqueCode = taggingAsset.value?.uniqueCode ?? 'TAG'
+//     link.href = dataUrl
+//     link.download = `${companyCode}_${uniqueCode}.png`
+//     link.click()
 
-    await api.post('/assets/unique-code', {
-      asset_id: taggingAsset.value.id,
-      unique_code: taggingAsset.value.uniqueCode,
-    })
+//     await api.post('/assets/unique-code', {
+//       asset_id: taggingAsset.value.id,
+//       unique_code: taggingAsset.value.uniqueCode,
+//     })
 
-    Swal.fire({ icon: 'success', title: 'Downloaded & Unique Code Saved!', timer: 1500, showConfirmButton: false })
-  } catch (err) {
-    console.error('Error capturing or saving:', err)
-    Swal.fire({ icon: 'error', title: 'Failed to download or save unique code.' })
-  }
-}
+//     Swal.fire({ icon: 'success', title: 'Downloaded & Unique Code Saved!', timer: 1500, showConfirmButton: false })
+//   } catch (err) {
+//     console.error('Error capturing or saving:', err)
+//     Swal.fire({ icon: 'error', title: 'Failed to download or save unique code.' })
+//   }
+// }
+
 
 // ------------------
 // Company Logo helper
 // ------------------
-const getCompanyLogo = (company: Company) => {
-  if (!company?.logo) return new URL('../assets/uploads/placeholder.png', import.meta.url).href
-  try {
-    return new URL(`/public/${company.logo}`, import.meta.url).href
-  } catch {
-    return new URL('../assets/uploads/placeholder.png', import.meta.url).href
-  }
-}
+// const getCompanyLogo = (company: Company) => {
+//   if (!company?.logo) return new URL('../assets/uploads/placeholder.png', import.meta.url).href
+//   try {
+//     return new URL(`/public/${company.logo}`, import.meta.url).href
+//   } catch {
+//     return new URL('../assets/uploads/placeholder.png', import.meta.url).href
+//   }
+// }
 
 // ------------------
 // Initialize data
@@ -677,7 +685,7 @@ initData()
             <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
               <button  @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️ Edit</button>
               <button v-if="user.role === 'admin'" @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️ Delete</button>
-              <button @click="openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️ Add Tag</button>
+              <button @click="tagModalRef?.openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️ Add Tag</button>
             </td>
           </tr>
         </tbody>
@@ -825,7 +833,7 @@ initData()
     </div>
   </div>
   <!-- Tagging Modal -->
-   <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50" @click.self="showTagModal = false">
+   <!-- <div v-if="showTagModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50" @click.self="showTagModal = false">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-bold mb-4">Asset Tagging</h2>
       <div ref="captureRef" class="flex flex-col items-center gap-4 p-4" style="background-color: #fff;">
@@ -843,7 +851,7 @@ initData()
         </button>
       </div>
     </div>
-  </div>
+  </div> -->
  <!-- Export to Excel modal -->
 <div v-if="showExportModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
   <!-- modal -->
@@ -881,4 +889,5 @@ initData()
     </div>
   </div>
 </div>
+<AssetFormat ref="tagModalRef" @tagCreated="handleTagCreated" />
 </template>

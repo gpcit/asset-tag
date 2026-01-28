@@ -53,6 +53,7 @@ const allNavigation: NavItem[] = [
   { name: 'Dashboard', to: '/dashboard', roles: ['admin', 'staff'] },
   { name: 'Asset', to: '/asset', roles: ['admin', 'staff'] },
   { name: 'Asset Tag', to: '/tagging', roles: ['admin', 'staff'] },
+  { name: 'Asset Tag Print', to: '/asset_tag_print', roles: ['admin', 'staff'] },
   { name: 'Category List', to: '/category', roles: ['admin'] },
   { name: 'Server Accounts', to: '/server_account_list', roles: ['admin'] },
   { name: 'User Permission', to: '/user_permission', roles: ['admin'] },

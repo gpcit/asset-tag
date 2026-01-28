@@ -11,7 +11,7 @@ interface Asset {
   category?: { name: string }
   company?: { 
     name: string
-    code: string
+    code?: string
     logo?: string
   }
   person_in_charge?: string
@@ -32,7 +32,6 @@ const emit = defineEmits<{
 
 const openTagModal = async (asset: Asset) => {
   const existingCode = asset.asset_code?.unique_code
-  
   if (existingCode) {
     Swal.fire({
       icon: 'info',
@@ -42,7 +41,6 @@ const openTagModal = async (asset: Asset) => {
     })
     return
   }
-  
   isReprint.value = false
   await generateTag(asset)
 }
@@ -54,12 +52,9 @@ const openReprintModal = async (asset: Asset) => {
 
 const generateTag = async (asset: Asset) => {
   showTagModal.value = true
-  
   try {
     const existingCode = asset.asset_code?.unique_code
-    
     let assetCode: string
-    
     if (existingCode) {
       assetCode = existingCode
     } else {
@@ -70,17 +65,15 @@ const generateTag = async (asset: Asset) => {
       const uniqueNumber = asset.id.toString().padStart(6, '0')
       assetCode = `${companyCode}-${categoryPrefix}${uniqueNumber}`
     }
-    
     taggingAsset.value = { ...asset, uniqueCode: assetCode }
-    
-    // Change this part to include all information
+
     const qrText = 
       `Unique Code: ${assetCode}\n` +
       `Company: ${asset.company?.name ?? 'No Company'}\n` +
       `Category: ${asset.category?.name ?? 'No Category'}\n` +
       `Person In-charge: ${asset.person_in_charge ?? 'Unknown'}\n` +
       `Department: ${asset.department ?? 'N/A'}`
-    
+
     qrCodeDataUrl.value = await QRCode.toDataURL(qrText, {
       width: 300,
       margin: 2,
@@ -97,34 +90,28 @@ const generateTag = async (asset: Asset) => {
 
 const downloadImage = async () => {
   if (!captureRef.value || !taggingAsset.value || !taggingAsset.value.uniqueCode) return
-  
   try {
-    const canvas = await html2canvas(captureRef.value, { 
-      scale: 2, 
-      backgroundColor: '#ffffff'
-    })
-    
+    const canvas = await html2canvas(captureRef.value, { scale: 2, backgroundColor: '#ffffff' })
+
     const targetWidthCm = 6.4
     const targetHeightCm = 3.8
-    const cmToPixel = 55 // comeback to this need adjusting
-    
+    const cmToPixel = 57
     const targetWidth = Math.round(targetWidthCm * cmToPixel)
     const targetHeight = Math.round(targetHeightCm * cmToPixel)
-    
+
     const resizedCanvas = document.createElement('canvas')
     resizedCanvas.width = targetWidth
     resizedCanvas.height = targetHeight
-    
+
     const ctx = resizedCanvas.getContext('2d')
     if (ctx) {
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, targetWidth, targetHeight)
       ctx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
     }
-    
+
     resizedCanvas.toBlob(async (blob) => {
       if (!blob) return
-      
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       const uniqueCode = taggingAsset.value!.uniqueCode!
@@ -132,7 +119,21 @@ const downloadImage = async () => {
       link.download = `${uniqueCode}.png`
       link.click()
       URL.revokeObjectURL(url)
-      
+
+      // ====== Upload for Batch Printing ======
+      try {
+        const formData = new FormData()
+        formData.append('asset_id', taggingAsset.value!.id.toString())
+        formData.append('unique_code', uniqueCode)
+        formData.append('tag_image', blob, `${uniqueCode}.png`)
+        await api.post('/batch-tags/save', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
+      } catch (err) {
+        console.error('Failed to save tag for batch printing', err)
+      }
+      // ========================================
+
       if (!isReprint.value) {
         await api.post('/assets/unique-code', {
           asset_id: taggingAsset.value!.id,
@@ -140,17 +141,17 @@ const downloadImage = async () => {
         })
         emit('tagCreated', taggingAsset.value!.id, uniqueCode)
       }
-      
+
       Swal.fire({ 
         icon: 'success', 
         title: isReprint.value ? 'Tag Reprinted!' : 'Downloaded & Unique Code Saved!', 
         timer: 1500, 
         showConfirmButton: false 
       })
-      
+
       closeModal()
     }, 'image/png')
-    
+
   } catch (err) {
     console.error('Error capturing or saving:', err)
     Swal.fire({ 
@@ -159,6 +160,7 @@ const downloadImage = async () => {
     })
   }
 }
+
 const closeModal = () => {
   showTagModal.value = false
   taggingAsset.value = null
@@ -228,34 +230,29 @@ defineExpose({ openTagModal, openReprintModal })
   justify-content: center;
   z-index: 1000;
 }
-
 .modal-content {
   background: transparent;
   border-radius: 12px;
   max-width: 700px;
   width: 90%;
 }
-
 .tag-container {
   background: linear-gradient(135deg, #e8f5f0 0%, #d4ebe3 100%);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
-
 .tag-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 }
-
 .header-text {
   font-size: 18px;
   font-weight: 600;
   color: #1a5c4a;
 }
-
 .close-btn {
   background: #4a9b7f;
   color: white;
@@ -270,11 +267,9 @@ defineExpose({ openTagModal, openReprintModal })
   font-size: 20px;
   transition: background 0.3s;
 }
-
 .close-btn:hover {
   background: #3d8268;
 }
-
 .tag-body {
   background: white;
   border-radius: 8px;
@@ -284,7 +279,6 @@ defineExpose({ openTagModal, openReprintModal })
   gap: 30px;
   margin-bottom: 20px;
 }
-
 .qr-section {
   display: flex;
   flex-direction: column;
@@ -294,27 +288,23 @@ defineExpose({ openTagModal, openReprintModal })
   border-radius: 8px;
   padding: 30px;
 }
-
 .qr-wrapper {
   background: white;
   padding: 15px;
   border-radius: 8px;
   margin-bottom: 15px;
 }
-
 .qr-image {
   display: block;
   width: 200px;
   height: 200px;
 }
-
 .qr-label {
   color: white;
   font-size: 16px;
   font-weight: 600;
   text-align: center;
 }
-
 .company-section {
   display: flex;
   flex-direction: column;
@@ -322,19 +312,16 @@ defineExpose({ openTagModal, openReprintModal })
   justify-content: center;
   text-align: center;
 }
-
 .company-logo {
   width: 180px;
   height: 180px;
   margin-bottom: 20px;
 }
-
 .logo-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
-
 .logo-placeholder {
   width: 100%;
   height: 100%;
@@ -342,7 +329,6 @@ defineExpose({ openTagModal, openReprintModal })
   align-items: center;
   justify-content: center;
 }
-
 .placeholder-circle {
   width: 120px;
   height: 120px;
@@ -350,20 +336,17 @@ defineExpose({ openTagModal, openReprintModal })
   background: linear-gradient(135deg, #7ec9aa 0%, #5ba888 50%, #8b7355 100%);
   box-shadow: inset 0 -20px 30px rgba(0, 0, 0, 0.2);
 }
-
 .company-name {
   font-size: 20px;
   font-weight: 700;
   color: #1a5c4a;
   margin-bottom: 5px;
 }
-
 .company-code {
   font-size: 18px;
   font-weight: 600;
   color: #2d6b54;
 }
-
 .print-btn {
   width: 100%;
   background: #2d6b54;
@@ -380,11 +363,9 @@ defineExpose({ openTagModal, openReprintModal })
   gap: 8px;
   transition: background 0.3s;
 }
-
 .print-btn:hover {
   background: #235241;
 }
-
 .plus-icon {
   font-size: 20px;
 }

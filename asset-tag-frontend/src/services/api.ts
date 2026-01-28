@@ -1,7 +1,7 @@
 import { jwtDecode } from 'jwt-decode'
 import axios, { AxiosError } from 'axios'
 
-const API_URL = 'http://localhost:8000/api' // change this in prod 10.20.20.10
+const API_URL = 'http://10.20.20.10:8000/api' // change this in prod 10.20.20.10
 
 interface JwtPayload {
   exp: number

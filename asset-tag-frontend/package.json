@@ -21,6 +21,8 @@
     "@tailwindcss/vite": "^4.1.18",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
+    "html2pdf": "^0.0.11",
+    "html2pdf.js": "^0.14.0",
     "jwt-decode": "^4.0.0",
     "pinia": "^3.0.4",
     "sweetalert2": "^11.26.17",

@@ -9,6 +9,8 @@ import CategoryList from '@/views/CategoryList.vue'
 import AssetList from '@/views/AssetList.vue'
 import ServerAccount from '@/views/ServerAccount.vue'
 import UserPermission from '@/views/UserPermission.vue'
+import AssetTagPrint from '@/views/AssetTagPrint.vue'
+
 const routes = [
   {
     path: '/',
@@ -71,6 +73,12 @@ const routes = [
     name: 'UserPermission',
     meta: { requiresAuth: true },
     component: UserPermission
+  },
+  {
+    path: '/asset_tag_print',
+    name: 'AssetTagPrint',
+    meta: { requiresAuth: true },
+    component: AssetTagPrint
   }
 ]
 

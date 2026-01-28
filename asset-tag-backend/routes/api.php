@@ -5,6 +5,7 @@ use App\Http\Controllers\AssetController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\ServerAccountController;
+use App\Http\Controllers\BatchTagController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -16,6 +17,10 @@ Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downl
 Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
 Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
 Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
+Route::get('/batch-tags', [BatchTagController::class, 'index']);
+Route::post('/batch-tags/save', [BatchTagController::class, 'store']);
+Route::delete('/batch-tags/{id}', [BatchTagController::class, 'destroy']);
+Route::post('/batch-tags/mark-printed', [BatchTagController::class, 'markPrinted']);
 
 // Any authenticated user
 Route::middleware('auth:api')->group(function () {

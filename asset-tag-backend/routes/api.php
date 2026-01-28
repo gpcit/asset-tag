@@ -20,7 +20,7 @@ Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
 Route::get('/batch-tags', [BatchTagController::class, 'index']);
 Route::post('/batch-tags/save', [BatchTagController::class, 'store']);
 Route::delete('/batch-tags/{id}', [BatchTagController::class, 'destroy']);
-Route::post('/batch-tags/mark-printed', [BatchTagController::class, 'markPrinted']);
+Route::post('/batch-tags/{id}/mark-printed', [BatchTagController::class, 'markPrinted']);
 
 // Any authenticated user
 Route::middleware('auth:api')->group(function () {
@@ -40,10 +40,8 @@ Route::middleware('auth:api')->group(function () {
         Route::apiResource('servers', ServerAccountController::class);
     });
 
-Route::middleware(['auth:api', 'role:admin'])->group(function () {
-    Route::get('/users', [AuthController::class, 'index']);
-    Route::patch('/users/{user}/role', [AuthController::class, 'updateRole']);
+    Route::middleware(['auth:api', 'role:admin'])->group(function () {
+        Route::get('/users', [AuthController::class, 'index']);
+        Route::patch('/users/{user}/role', [AuthController::class, 'updateRole']);
+    });
 });
-
-});
-

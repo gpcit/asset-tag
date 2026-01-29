@@ -10,6 +10,7 @@ import AssetList from '@/views/AssetList.vue'
 import ServerAccount from '@/views/ServerAccount.vue'
 import UserPermission from '@/views/UserPermission.vue'
 import AssetTagPrint from '@/views/AssetTagPrint.vue'
+import EmployeePage from '@/views/EmployeePage.vue'
 
 const routes = [
   {
@@ -79,6 +80,12 @@ const routes = [
     name: 'AssetTagPrint',
     meta: { requiresAuth: true },
     component: AssetTagPrint
+  },
+  {
+    path: '/employee',
+    name: 'Employee',
+    meta: { requiresAuth: true },
+    component: EmployeePage
   }
 ]
 

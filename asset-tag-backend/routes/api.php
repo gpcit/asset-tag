@@ -22,7 +22,13 @@ Route::get('/batch-tags', [BatchTagController::class, 'index']);
 Route::post('/batch-tags/save', [BatchTagController::class, 'store']);
 Route::delete('/batch-tags/{id}', [BatchTagController::class, 'destroy']);
 Route::post('/batch-tags/{id}/mark-printed', [BatchTagController::class, 'markPrinted']);
-Route::apiResource('employees', EmployeeController::class);
+
+// Employee
+Route::get('employees', [EmployeeController::class, 'index']);      // paginated list
+Route::get('employees/all', [EmployeeController::class, 'all']);   // full list for dropdowns
+Route::post('employees', [EmployeeController::class, 'store']);    // create
+Route::put('employees/{employee}', [EmployeeController::class, 'update']); // update
+Route::delete('employees/{employee}', [EmployeeController::class, 'destroy']); // delete
 
 // Any authenticated user
 Route::middleware('auth:api')->group(function () {

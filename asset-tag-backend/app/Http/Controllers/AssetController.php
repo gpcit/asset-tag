@@ -3,11 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\AssetInventory;
 use App\Models\AssetCode;
-use App\Models\Category;
-use App\Models\Companies; // make sure this matches your model
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AssetController extends Controller
@@ -17,7 +14,12 @@ class AssetController extends Controller
      */
     public function index(Request $request)
     {
-        $query = AssetInventory::with(['company', 'category', 'assetCode']);
+        $query = AssetInventory::with([
+            'company',
+            'category',
+            'assetCode',
+            'employee' // ✅ LOAD EMPLOYEE
+        ]);
 
         if ($request->boolean('has_unique_code')) {
             $query->whereHas('assetCode');
@@ -65,9 +67,13 @@ class AssetController extends Controller
             'unique_code' => 'required|string',
         ]);
 
-        $assetCode = AssetCode::with(['asset.company', 'asset.category'])
-            ->where('unique_code', $request->unique_code)
-            ->first();
+        $assetCode = AssetCode::with([
+            'asset.company',
+            'asset.category',
+            'asset.employee'  // ✅ employee is the current owner
+        ])
+        ->where('unique_code', $request->unique_code)
+        ->first();
 
         if (!$assetCode || !$assetCode->asset) {
             return response()->json(['message' => 'Asset not found'], 404);
@@ -75,9 +81,10 @@ class AssetController extends Controller
 
         return response()->json([
             'unique_code' => $assetCode->unique_code,
-            'asset' => $assetCode->asset,
+            'asset' => $assetCode->asset, // ✅ current owner only
         ]);
     }
+
 
     /**
      * UNIQUE CODE AUTOCOMPLETE
@@ -92,66 +99,118 @@ class AssetController extends Controller
     /**
      * STORE ASSET
      */
-    
     public function store(Request $request)
     {
         $data = $request->validate([
-            'person_in_charge' => 'required|string|max:255',
-            'department' => 'required|string|max:255',
+            'person_in_charge_id' => 'nullable|exists:employees,id',
             'company_id' => 'required|exists:companies,id',
             'category_id' => 'required|exists:categories,id',
             'cost' => 'nullable|numeric|min:0',
             'supplier' => 'nullable|string|max:255',
             'model_number' => 'nullable|string|max:255',
             'specs' => 'nullable|string',
+            'asset_info' => 'nullable|string',
             'invoice_date' => 'nullable|date',
             'invoice_number' => 'nullable|string|max:255',
             'date_deployed' => 'nullable|date',
-            'date_returned'=> 'nullable|date',
+            'date_returned' => 'nullable|date',
             'remarks' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
         ]);
 
         $asset = AssetInventory::create($data);
 
-        return response()->json($asset, 201);
+        return response()->json(
+            $asset->load(['company', 'category', 'employee']),
+            201
+        );
     }
 
+    
+    //   UPDATE ASSET
+     
     public function update(Request $request, AssetInventory $asset)
     {
         $data = $request->validate([
-            'person_in_charge' => 'sometimes|required|string|max:255',
-            'department' => 'sometimes|required|string|max:255',
-            'company_id' => 'sometimes|required|exists:companies,id',
-            'category_id' => 'sometimes|required|exists:categories,id',
+            'person_in_charge_id' => 'nullable|exists:employees,id',
+            'department' => 'nullable|string|max:255',
+            'date_deployed' => 'nullable|date',
+            'date_returned' => 'nullable|date',
+            'is_active' => 'sometimes|boolean',
+
+            // other editable fields
+            'company_id' => 'sometimes|exists:companies,id',
+            'category_id' => 'sometimes|exists:categories,id',
             'cost' => 'nullable|numeric|min:0',
             'supplier' => 'nullable|string|max:255',
             'model_number' => 'nullable|string|max:255',
             'specs' => 'nullable|string',
+            'asset_info' => 'nullable|string',
             'invoice_date' => 'nullable|date',
             'invoice_number' => 'nullable|string|max:255',
-            'date_deployed' => 'nullable|date',
-            'date_returned'=> 'nullable|date',
             'remarks' => 'nullable|string',
-            'is_active' => 'sometimes|boolean',
         ]);
 
-        // Auto-set date_returned if marking inactive
-        if (array_key_exists('is_active', $data)) {
-            if (!$data['is_active'] && !$asset->date_returned) {
-                $data['date_returned'] = now()->format('Y-m-d'); // YYYY-MM-DD
+        /**
+         * =====================================================
+         *  CASE 1: ASSET IS BEING RETURNED
+         * =====================================================
+         */
+        if (!empty($data['date_returned'])) {
+
+            // Save current owner to history (if exists)
+            if ($asset->person_in_charge_id) {
+                \DB::table('asset_histories')->insert([
+                    'asset_id'      => $asset->id,
+                    'employee_id'   => $asset->person_in_charge_id,
+                    'department'    => $asset->department,
+                    'date_deployed' => $asset->date_deployed,
+                    'date_returned' => $data['date_returned'],
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ]);
             }
 
-            // Optional: clearing date_returned if reactivating
-            if ($data['is_active'] && $asset->date_returned) {
-                $data['date_returned'] = null;
+            // Clear ownership
+            $data['person_in_charge_id'] = null;
+            $data['department']          = null;
+            $data['date_deployed']       = null;
+
+            //  auto inactive
+            $data['is_active'] = false;
+        }
+
+        /**
+         * =====================================================
+         *  CASE 2: ASSET IS BEING ASSIGNED
+         * =====================================================
+         */
+        if (!empty($data['person_in_charge_id'])) {
+
+            // Fresh deployment → always clear return
+            $data['date_returned'] = null;
+
+            // If user didn't pick a date, default to today
+            if (empty($data['date_deployed'])) {
+                $data['date_deployed'] = now()->format('Y-m-d');
             }
+
+            //  auto active
+            $data['is_active'] = true;
         }
 
         $asset->update($data);
 
-        return response()->json($asset);
+        return response()->json(
+            $asset->load([
+                'company',
+                'category',
+                'assetCode',
+                'employee',
+                'histories.employee',
+            ])
+        );
     }
-
 
 
 
@@ -178,19 +237,27 @@ class AssetController extends Controller
      */
     public function downloadTag($unique_code)
     {
-        $assetCode = AssetCode::with(['asset.company'])
-            ->where('unique_code', $unique_code)
-            ->firstOrFail();
+        $assetCode = AssetCode::with([
+            'asset.company',
+            'asset.category', // ✅ load category
+        ])
+        ->where('unique_code', $unique_code)
+        ->firstOrFail();
 
         $asset = $assetCode->asset;
 
         $qrText =
-            "Code: {$assetCode->unique_code}\n" .
-            "Owner: {$asset->person_in_charge}\n" .
-            "Company: " . ($asset->company->name ?? 'N/A');
+            "Unique Code: {$assetCode->unique_code}\n" .
+            "Company: " . ($asset->company?->name ?? 'N/A') . "\n" .
+            "Category: " . ($asset->category?->name ?? 'N/A') . "\n" .
+            "Invoice Date: " . ($asset->invoice_date ?? 'N/A') . "\n" .
+            "Specs: " . ($asset->specs ?? 'N/A');
 
         return response(
-            QrCode::format('png')->size(300)->margin(2)->generate($qrText)
+            QrCode::format('png')
+                ->size(300)
+                ->margin(2)
+                ->generate($qrText)
         )->header('Content-Type', 'image/png');
     }
 
@@ -199,7 +266,15 @@ class AssetController extends Controller
      */
     public function show(AssetInventory $asset)
     {
-        return $asset->load('company', 'category', 'assetCode');
+        return response()->json(
+            $asset->load([
+                'company',
+                'category',
+                'assetCode',
+                'employee',
+                'histories.employee',
+            ])
+        );
     }
 
     /**
@@ -207,47 +282,31 @@ class AssetController extends Controller
      */
     public function destroy(AssetInventory $asset)
     {
-        $asset->delete(); // soft delete, sets deleted_at
+        $asset->delete();
         return response()->json(null, 204);
     }
 
+    /**
+     * ASSET LIST (ACTIVE)
+     */
     public function assetList()
     {
-        $assets = AssetInventory::with('company')
+        $assets = AssetInventory::with(['company', 'employee'])
             ->where('is_active', 1)
-            ->get(['id', 'person_in_charge', 'company_id', 'is_active']);
+            ->get();
 
-        $result = $assets->map(function ($asset) {
-            return [
-                'id' => $asset->id,
-                'person_in_charge' => $asset->person_in_charge,
-                'company' => $asset->company?->name ?? 'N/A',
-                'is_active' => $asset->is_active,
-            ];
-        });
-
-        return response()->json($result)
-            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', '0');
+        return response()->json($assets);
     }
+
+    /**
+     * ASSET LIST (ALL)
+     */
     public function assetListAll()
     {
-        $assets = AssetInventory::with('company')
-            ->get(['id', 'person_in_charge', 'company_id', 'is_active']);
-        
-        $result = $assets->map(function ($asset) {
-            return [
-                'id' => $asset->id,
-                'person_in_charge' => $asset->person_in_charge,
-                'company' => $asset->company?->name ?? 'N/A',
-                'is_active' => $asset->is_active,
-            ];
-        });
-        
-        return response()->json($result)
-            ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-            ->header('Pragma', 'no-cache')
-            ->header('Expires', '0');
+        $assets = AssetInventory::with(['company', 'employee'])->get();
+
+        return response()->json($assets);
     }
+
+    
 }

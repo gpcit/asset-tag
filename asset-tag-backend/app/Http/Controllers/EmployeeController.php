@@ -7,26 +7,40 @@ use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
 {
+    public function show(Employee $employee)
+    {
+        return response()->json($employee);
+    }
+    public function all(Request $request)
+    {
+        $query = Employee::query();
+
+        if ($q = $request->query('q')) {
+            $query->where('name', 'like', "%$q%")
+                ->orWhere('department', 'like', "%$q%");
+        }
+
+        $employees = $query->orderBy('name', 'asc')->get();
+
+        return response()->json($employees);
+    }
+
     // List employees with search & pagination
     public function index(Request $request)
     {
         $query = Employee::query();
 
-        // Search by name or department (frontend sends 'q')
-        if ($request->has('q') && $request->q) {
-            $q = $request->q;
-            $query->where(function($builder) use ($q) {
-                $builder->where('name', 'like', "%{$q}%")
-                        ->orWhere('department', 'like', "%{$q}%");
-            });
+        // Search filter
+        if ($q = $request->query('q')) {
+            $query->where('name', 'like', "%$q%")
+                ->orWhere('department', 'like', "%$q%");
         }
 
-        // Pagination
-        $perPage = $request->get('per_page', 10);
-        $page = $request->get('page', 1);
+        // Use paginate() instead of get()
+        $perPage = $request->query('perPage', 10); // default 10
+        $employees = $query->orderBy('name', 'asc')->paginate($perPage);
 
-        $employees = $query->orderBy('name', 'asc')->paginate($perPage, ['*'], 'page', $page);
-
+        // Return JSON with Laravel pagination structure
         return response()->json($employees);
     }
 

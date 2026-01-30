@@ -46,7 +46,11 @@ const searchUniqueCode = async (code?: string) => {
 
     foundAsset.value = {
       ...res.data.asset,
-      asset_code: { unique_code: res.data.unique_code }
+      invoice_date: res.data.asset.invoice_date,
+      specs: res.data.asset.specs|| '',
+      asset_code: { unique_code: res.data.unique_code },
+      category: res.data.asset.category || { name: '' },
+      company: res.data.asset.company || { name: '', code: '', logo: '' },
     }
 
     searchCode.value = query
@@ -60,6 +64,9 @@ const searchUniqueCode = async (code?: string) => {
     loading.value = false
   }
 }
+
+
+
 
 const fetchSuggestions = async () => {
   const query = searchCode.value.trim()
@@ -91,7 +98,16 @@ const reprintTag = () => {
 const fetchAllAssetsWithUniqueCode = async () => {
   try {
     const res = await api.get('/assets', { params: { has_unique_code: true } })
-    allAssets.value = res.data
+    
+    allAssets.value = res.data.map(asset => ({
+      ...asset,
+      invoice_date: asset.invoice_date || '',
+      specs: asset.specs || '',
+      asset_code: asset.asset_code || { unique_code: '' },
+      category: asset.category || { name: '' },
+      company: asset.company || { name: '', code: '', logo: '' },
+    }))
+    
     console.log('Fetched assets:', allAssets.value.length)
   } catch (err) {
     console.error('Fetch Error:', err)
@@ -260,8 +276,8 @@ onMounted(() => {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-        <p><span class="text-gray-500">Person In-charge:</span> {{ foundAsset.person_in_charge }}</p>
-        <p><span class="text-gray-500">Department:</span> {{ foundAsset.department }}</p>
+        <p><span class="text-gray-500">Invoice Date:</span> {{ foundAsset.invoice_date }}</p>
+        <p><span class="text-gray-500">Specification:</span> {{ foundAsset.specs }}</p>
         <p><span class="text-gray-500">Category:</span> {{ foundAsset.category?.name || '-' }}</p>
         <p><span class="text-gray-500">Supplier:</span> {{ foundAsset.supplier || '-' }}</p>
         <p><span class="text-gray-500">Model:</span> {{ foundAsset.model_number || '-' }}</p>

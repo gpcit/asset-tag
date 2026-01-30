@@ -15,7 +15,35 @@ interface BatchTag {
 
 const batchTags = ref<BatchTag[]>([])
 const loading = ref(false)
+const foundAsset = ref<Asset | null>(null)
+const loadingAsset = ref(false)
 
+const searchUniqueCode = async (code: string) => {
+  if (!code) return
+  loadingAsset.value = true
+  foundAsset.value = null
+
+  try {
+    const res = await api.get('/assets/by-unique-code', { params: { unique_code: code } })
+
+    foundAsset.value = {
+      ...res.data.asset,
+      person_in_charge: res.data.asset.employee?.name || 'Unassigned',
+      department: res.data.asset.department || '',
+      asset_code: { unique_code: res.data.unique_code },
+      category: res.data.asset.category || { name: '' },
+      company: res.data.asset.company || { name: '', code: '', logo: '' },
+    }
+  } catch (err) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Not Found',
+      text: 'No asset found with this unique code.'
+    })
+  } finally {
+    loadingAsset.value = false
+  }
+}
 
   //  FETCH TAGS
 
@@ -166,7 +194,16 @@ onMounted(fetchBatchTags)
         </button>
       </div>
     </div>
+    
   </div>
+  <div v-if="foundAsset" class="asset-details p-4 border rounded mt-4 bg-white shadow">
+  <h3>Asset Details</h3>
+  <p><strong>Unique Code:</strong> {{ foundAsset.asset_code?.unique_code }}</p>
+  <p><strong>Company:</strong> {{ foundAsset.company?.name || '-' }}</p>
+  <p><strong>Person In-charge:</strong> {{ foundAsset.person_in_charge }}</p>
+  <p><strong>Department:</strong> {{ foundAsset.department }}</p>
+  <p><strong>Category:</strong> {{ foundAsset.category?.name || '-' }}</p>
+</div>
 </template>
 
 <style scoped>

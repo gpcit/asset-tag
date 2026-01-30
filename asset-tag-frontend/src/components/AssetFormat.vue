@@ -18,6 +18,7 @@ interface Asset {
   department?: string
   specs?: string
   asset_code?: { unique_code: string }
+  invoice_date?: string
 }
 
 const showTagModal = ref(false)
@@ -71,8 +72,8 @@ const generateTag = async (asset: Asset) => {
       `Unique Code: ${assetCode}\n` +
       `Company: ${asset.company?.name ?? 'No Company'}\n` +
       `Category: ${asset.category?.name ?? 'No Category'}\n` +
-      `Person In-charge: ${asset.person_in_charge ?? 'Unknown'}\n` +
-      `Department: ${asset.department ?? 'N/A'}`
+      `Invoice Date: ${asset.invoice_date ?? 'N/A'}\n` +
+      `Specification: ${asset.specs ?? 'N/A'}`
 
     qrCodeDataUrl.value = await QRCode.toDataURL(qrText, {
       width: 300,

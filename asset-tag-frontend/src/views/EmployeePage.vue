@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import Swal from 'sweetalert2'
 import api from '@/services/api'
 import NavBar from '@/components/NavBar.vue'
@@ -31,16 +31,59 @@ const form = ref({
 const fetchEmployees = async (query = '', page = 1) => {
   try {
     loading.value = true
-    const res = await api.get('/employees', { params: { q: query, page, perPage: perPage.value } })
-    employees.value = res.data.data
-    currentPage.value = res.data.current_page
-    totalPages.value = res.data.last_page
+    const res = await api.get('/employees', { params: { page: currentPage.value, perPage: 10, q: searchQuery.value }})
+
+    // Laravel-style pagination
+    if (res.data && res.data.data) {
+      employees.value = res.data.data
+      currentPage.value = res.data.current_page
+      totalPages.value = res.data.last_page
+    } else {
+      // fallback if simple array
+      employees.value = res.data || []
+      totalPages.value = 1
+    }
   } catch (err) {
+    console.error('Fetch error:', err)
     Swal.fire('Error', 'Failed to fetch employees', 'error')
   } finally {
     loading.value = false
   }
 }
+
+// Single goToPage function
+const goToPage = (page: number) => {
+  if (page < 1 || page > totalPages.value || loading.value) return
+  currentPage.value = page
+  fetchEmployees(searchQuery.value, page)
+}
+
+// Compute page numbers for pagination with "..." for large sets
+const displayedPages = computed(() => {
+  const pages: (number | string)[] = []
+  const total = totalPages.value
+  const current = currentPage.value
+  const maxPagesToShow = 10
+
+  if (total <= maxPagesToShow) {
+    // Show all pages
+    for (let i = 1; i <= total; i++) pages.push(i)
+  } else {
+    let start = Math.max(current - Math.floor(maxPagesToShow / 2), 1)
+    let end = start + maxPagesToShow - 1
+
+    if (end > total) {
+      end = total
+      start = end - maxPagesToShow + 1
+    }
+
+    if (start > 1) pages.push(1, '...')
+    for (let i = start; i <= end; i++) pages.push(i)
+    if (end < total) pages.push('...', total)
+  }
+
+  return pages
+})
 
 // Debounce search
 let searchTimeout: ReturnType<typeof setTimeout>
@@ -51,13 +94,6 @@ watch(searchQuery, (val) => {
     fetchEmployees(val, currentPage.value)
   }, 300)
 })
-
-// Pagination
-const goToPage = (page: number) => {
-  if (page < 1 || page > totalPages.value) return
-  currentPage.value = page
-  fetchEmployees(searchQuery.value, page)
-}
 
 // Modal handlers
 const openAddModal = () => {
@@ -227,14 +263,25 @@ onMounted(() => fetchEmployees())
     </div>
 
     <!-- Pagination -->
-    <div class="flex justify-end items-center gap-4 mt-4 text-gray-700">
+    <div class="flex justify-center items-center gap-2 mt-4 text-gray-700">
       <button
         @click="goToPage(currentPage-1)"
         :disabled="currentPage <= 1 || loading"
         class="px-3 py-1 border rounded-lg hover:bg-gray-100 disabled:opacity-50"
       >Prev</button>
 
-      <span>Page {{ currentPage }} / {{ totalPages }}</span>
+      <button
+        v-for="page in displayedPages"
+        :key="page + Math.random()"
+        @click="typeof page === 'number' ? goToPage(page) : null"
+        :class="[
+          'px-3 py-1 border rounded-lg hover:bg-gray-100',
+          page === currentPage ? 'bg-blue-600 text-white' : '',
+          page === '...' ? 'cursor-default pointer-events-none' : ''
+        ]"
+      >
+        {{ page }}
+      </button>
 
       <button
         @click="goToPage(currentPage+1)"

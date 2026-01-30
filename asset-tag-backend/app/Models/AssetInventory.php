@@ -13,6 +13,7 @@ class AssetInventory extends Model
 
     protected $fillable = [
         'person_in_charge',
+        'person_in_charge_id',
         'department',
         'cost',
         'supplier',
@@ -36,6 +37,7 @@ class AssetInventory extends Model
         'date_deployed' => 'date:Y-m-d',
         'date_returned' => 'date:Y-m-d',
         'is_active' => 'boolean',
+        'person_in_charge_id' => 'integer',
     ];
 
     protected $dates = ['invoice_date', 'date_deployed', 'date_returned', 'deleted_at'];
@@ -43,6 +45,9 @@ class AssetInventory extends Model
     // Enable timestamps
     public $timestamps = true;
 
+    public function employee(){
+        return $this->belongsTo(Employee::class, 'person_in_charge_id');
+    }
     public function company()
     {
         return $this->belongsTo(Companies::class, 'company_id');
@@ -60,5 +65,10 @@ class AssetInventory extends Model
     public function getCostAttribute($value)
     {
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    public function histories()
+    {
+        return $this->hasMany(AssetHistory::class, 'asset_id')->orderBy('created_at', 'desc');
     }
 }

@@ -666,47 +666,28 @@ initData()
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Assigned Employee (Searchable) -->
-<div v-if="isEditing" class="relative">
-  <label class="block text-sm font-medium mb-1">
-    Assigned Employee
-  </label>
+        <div v-if="isEditing, user.role === 'admin'" class="relative"> 
+          <label class="block text-sm font-medium mb-1">
+            Assigned Employee
+          </label>
 
-  <input
-    v-model="employeeSearch"
-    type="text"
-    placeholder="Search employee..."
-    class="w-full border px-2 py-1 rounded text-sm border-gray-300"
-    @focus="showEmployeeList = true"
-  />
+          <input v-model="employeeSearch" v-if = "user.role === 'admin'" type="text" placeholder="Search employee..." class="w-full border px-2 py-1 rounded text-sm border-gray-300" @focus="showEmployeeList = true"/>
+          <!-- Suggestions -->
+          <ul v-if="showEmployeeList && filteredEmployees.length" class="absolute z-10 w-full bg-white border rounded shadow max-h-48 overflow-y-auto text-sm">
+            <li v-for="emp in filteredEmployees" :key="emp.id" class="px-3 py-2 hover:bg-gray-100 cursor-pointer" @click="selectEmployee(emp)">
+              {{ emp.name }} <span class="text-gray-400">({{ emp.department }})</span>
+            </li>
+          </ul>
+        </div>
 
-  <!-- Suggestions -->
-  <ul
-    v-if="showEmployeeList && filteredEmployees.length"
-    class="absolute z-10 w-full bg-white border rounded shadow max-h-48 overflow-y-auto text-sm"
-  >
-    <li
-      v-for="emp in filteredEmployees"
-      :key="emp.id"
-      class="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-      @click="selectEmployee(emp)"
-    >
-      {{ emp.name }} <span class="text-gray-400">({{ emp.department }})</span>
-    </li>
-  </ul>
-</div>
+      <!-- Department (auto-filled) -->
+      <div v-if="isEditing,  user.role === 'admin'">
+        <label class="block text-sm font-medium mb-1">
+          Department
+        </label>
+        <input type="text" :value="form.department" disabled class="w-full border px-2 py-1 rounded text-sm bg-gray-100"/>
+      </div>
 
-<!-- Department (auto-filled) -->
-<div v-if="isEditing">
-  <label class="block text-sm font-medium mb-1">
-    Department
-  </label>
-  <input
-    type="text"
-    :value="form.department"
-    disabled
-    class="w-full border px-2 py-1 rounded text-sm bg-gray-100"
-  />
-</div>
         <!-- Company -->
         <div>
           <label class="block text-sm font-medium mb-1">Company <span class="text-red-500">*</span></label>
@@ -780,7 +761,7 @@ initData()
         </div>
 
         <!-- Date Deployed -->
-        <div v-if="isEditing">
+        <div v-if="isEditing,  user.role === 'admin'">
           <label class="block text-sm font-medium mb-1">
             Date Deployed
           </label>
@@ -788,7 +769,7 @@ initData()
         </div>
 
         <!-- Date Returned -->
-        <div v-if="isEditing">
+        <div v-if="isEditing,  user.role === 'admin'">
           <label class="block text-sm font-medium mb-1">
             Date Returned
           </label>

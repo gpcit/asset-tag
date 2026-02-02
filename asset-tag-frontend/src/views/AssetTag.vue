@@ -666,7 +666,7 @@ initData()
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Assigned Employee (Searchable) -->
-        <div v-if="isEditing, user.role === 'admin'" class="relative"> 
+        <div v-if="isEditing && user.role === 'admin'" class="relative"> 
           <label class="block text-sm font-medium mb-1">
             Assigned Employee
           </label>
@@ -681,7 +681,7 @@ initData()
         </div>
 
       <!-- Department (auto-filled) -->
-      <div v-if="isEditing,  user.role === 'admin'">
+      <div v-if="isEditing &&  user.role === 'admin'">
         <label class="block text-sm font-medium mb-1">
           Department
         </label>
@@ -761,7 +761,7 @@ initData()
         </div>
 
         <!-- Date Deployed -->
-        <div v-if="isEditing,  user.role === 'admin'">
+        <div v-if="isEditing && user.role === 'admin'">
           <label class="block text-sm font-medium mb-1">
             Date Deployed
           </label>
@@ -769,7 +769,7 @@ initData()
         </div>
 
         <!-- Date Returned -->
-        <div v-if="isEditing,  user.role === 'admin'">
+        <div v-if="isEditing &&  user.role === 'admin'">
           <label class="block text-sm font-medium mb-1">
             Date Returned
           </label>

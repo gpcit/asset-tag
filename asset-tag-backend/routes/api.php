@@ -29,6 +29,7 @@ Route::get('employees/all', [EmployeeController::class, 'all']);   // full list 
 Route::post('employees', [EmployeeController::class, 'store']);    // create
 Route::put('employees/{employee}', [EmployeeController::class, 'update']); // update
 Route::delete('employees/{employee}', [EmployeeController::class, 'destroy']); // delete
+Route::patch('employees/{employee}', [EmployeeController::class, 'update']);
 
 // Any authenticated user
 Route::middleware('auth:api')->group(function () {

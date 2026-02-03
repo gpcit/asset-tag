@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import NavBar from '@/components/NavBar.vue'
-import { ref, computed, watch,nextTick  } from 'vue'
+import { ref, computed, watch} from 'vue'
 import Swal from 'sweetalert2'
 import { useUserStore } from '@/stores/user'
 import api from '@/services/api'

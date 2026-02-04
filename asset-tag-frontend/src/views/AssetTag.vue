@@ -561,7 +561,7 @@ initData()
 
       <!-- Search Bar -->
       <div class="mb-4">
-        <input v-model="searchQuery" type="text" placeholder="Search by Employee, Company or Asset info" class="w-full border rounded px-3 py-2 text-sm"/>
+        <input v-model="searchQuery" type="text" placeholder="Search by Category, Specs, Company or Asset info" class="w-full border rounded px-3 py-2 text-sm"/>
       </div>
 
       <!-- Category -->
@@ -608,10 +608,11 @@ initData()
             <th class="px-3 py-1 font-semibold w-24">Category</th>
             <th class="px-3 py-1 font-semibold w-20">Invoice #</th>
             <th class="px-3 py-1 font-semibold w-20">Invoice Date</th>
-            <th class="px-3 py-1 font-semibold w-16">Cost</th>
+            <!-- <th class="px-3 py-1 font-semibold w-16">Cost</th> -->
             <th class="px-3 py-1 font-semibold w-20">Model #</th>
             <th class="px-3 py-1 font-semibold w-24">Supplier</th>
             <th class="px-3 py-1 font-semibold w-32">Specification</th>
+            <th class="px-3 py-1 font -semibold w-32">Asset Info</th>
             <th class="px-3 py-1 font-semibold w-20 text-center">Actions</th>
           </tr>
         </thead>
@@ -621,10 +622,11 @@ initData()
             <td class="px-3 py-1 break-words uppercase">{{ asset.category?.name || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_date || '-' }}</td>
-            <td class="px-3 py-1 whitespace-nowrap">{{ asset.cost ?? '-' }}</td>
+            <!-- <td class="px-3 py-1 whitespace-nowrap">{{ asset.cost ?? '-' }}</td> -->
             <td class="px-3 py-1 break-words uppercase">{{ asset.model_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.specs || '-' }}</td>
+            <td class="px-3 py-1 break-words uppercase">{{ asset.asset_info }}</td>
             <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
               <button  @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️</button>
               <button v-if="user.role === 'admin'" @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️</button>

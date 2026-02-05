@@ -11,6 +11,7 @@ import ServerAccount from '@/views/ServerAccount.vue'
 import UserPermission from '@/views/UserPermission.vue'
 import AssetTagPrint from '@/views/AssetTagPrint.vue'
 import EmployeePage from '@/views/EmployeePage.vue'
+import ActivityLog from '@/views/ActivityLog.vue'
 
 const routes = [
   {
@@ -86,6 +87,12 @@ const routes = [
     name: 'Employee',
     meta: { requiresAuth: true },
     component: EmployeePage
+  },
+  {
+    path: '/activity_log',
+    name: 'ActivityLog',
+    meta: { requiresAuth: true },
+    component: ActivityLog
   }
 ]
 

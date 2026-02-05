@@ -120,32 +120,45 @@ const loading = ref(true)
 const employeeSearch = ref('')
 const showEmployeeList = ref(false)
 
+// Separate state for history modal
+const historyEmployeeSearch = ref('')
+const showHistoryEmployeeList = ref(false)
+const historyForm = ref({
+  person_in_charge_id: undefined as number | undefined,
+  department: '',
+  dateDeployed: '',
+  dateReturned: '',
+  remarks: ''
+})
+
+// Edit history modal state
+const showEditHistoryModal = ref(false)
+const editingHistory = ref<any>(null)
+const historyEditForm = ref({
+  employee_id: undefined as number | undefined,
+  department: '',
+  date_deployed: '',
+  date_returned: '',
+  remarks: ''
+})
+const historyEditEmployeeSearch = ref('')
+const showHistoryEditEmployeeList = ref(false)
+
 const userStore = useUserStore()
 
-// Asset history
-const viewHistory = async (asset: any) => {
-  const res = await api.get(`/assets/${asset.id}`)
-  selectedAsset.value = res.data
-  showHistoryModal.value = true
-}
 /* ------------------
  Employees
 ------------------ */
 const fetchEmployees = async () => {
   try {
     const res = await api.get('/employees/all')
-
-    // This endpoint returns a simple array
     employees.value = Array.isArray(res.data) ? res.data : []
-
-    console.log('Employees loaded:', employees.value) // Debug check
+    console.log('Employees loaded:', employees.value)
   } catch (err) {
     console.error('Error fetching employees:', err)
     employees.value = []
   }
 }
-
-
 
 /* ------------------
  Form
@@ -177,7 +190,7 @@ const errors = ref<Record<string, string>>({})
 /* ------------------
  Computed: department auto-fill safely
 ------------------ */
-// Filter employees as user types
+// Filter employees as user types (for create/edit modal)
 const filteredEmployees = computed(() => {
   if (!employeeSearch.value) return employees.value
   return employees.value.filter(emp =>
@@ -185,11 +198,64 @@ const filteredEmployees = computed(() => {
   )
 })
 
-// When user clicks an employee
+// Filter employees for history modal
+const filteredHistoryEmployees = computed(() => {
+  if (!historyEmployeeSearch.value) return employees.value
+  return employees.value.filter(emp =>
+    emp.name.toLowerCase().includes(historyEmployeeSearch.value.toLowerCase())
+  )
+})
+
+// Filter employees for edit history modal
+const filteredHistoryEditEmployees = computed(() => {
+  if (!historyEditEmployeeSearch.value) return employees.value
+  return employees.value.filter(emp =>
+    emp.name.toLowerCase().includes(historyEditEmployeeSearch.value.toLowerCase())
+  )
+})
+
+// When user clicks an employee (create/edit modal)
 const selectEmployee = (emp) => {
   form.value.person_in_charge_id = emp.id
   employeeSearch.value = emp.name
   showEmployeeList.value = false
+}
+
+// When user clicks an employee in history modal
+const selectHistoryEmployee = (emp) => {
+  historyForm.value.person_in_charge_id = emp.id
+  historyEmployeeSearch.value = emp.name
+  historyForm.value.department = emp.department
+  showHistoryEmployeeList.value = false
+  
+  // Reset return date when assigning new employee
+  historyForm.value.dateReturned = ''
+  
+  // Set deployment date to today if not set
+  if (!historyForm.value.dateDeployed) {
+    const today = new Date().toISOString().split('T')[0]
+    historyForm.value.dateDeployed = today
+  }
+}
+
+// Select employee in edit history modal
+const selectHistoryEditEmployee = (emp) => {
+  historyEditForm.value.employee_id = emp.id
+  historyEditEmployeeSearch.value = emp.name
+  historyEditForm.value.department = emp.department
+  showHistoryEditEmployeeList.value = false
+}
+
+// Clear employee from history modal
+const clearHistoryEmployee = () => {
+  historyForm.value.person_in_charge_id = undefined
+  historyEmployeeSearch.value = ''
+  historyForm.value.department = ''
+  historyForm.value.dateDeployed = ''
+  
+  // Set return date to today
+  const today = new Date().toISOString().split('T')[0]
+  historyForm.value.dateReturned = today
 }
 
 watch(
@@ -217,7 +283,6 @@ watch(
       employeeSearch.value = ''
       form.value.department = ''
       form.value.dateDeployed = null
-      // user may set dateReturned manually
       return
     }
 
@@ -229,16 +294,142 @@ watch(
 
     employeeSearch.value = emp.name
     form.value.department = emp.department
-
-    // IMPORTANT: reset return date when assigning
     form.value.dateReturned = null
 
-    // Optional: require fresh deployment date
     if (!form.value.dateDeployed) {
       form.value.dateDeployed = null
     }
   }
 )
+
+/* ------------------
+ Asset History
+------------------ */
+const viewHistory = async (asset: any) => {
+  try {
+    const res = await api.get(`/assets/${asset.id}`)
+    selectedAsset.value = res.data
+    
+    // Populate history form
+    historyForm.value = {
+      person_in_charge_id: res.data.person_in_charge_id ?? undefined,
+      department: res.data.department || '',
+      dateDeployed: res.data.date_deployed || '',
+      dateReturned: res.data.date_returned || '',
+      remarks: res.data.remarks || ''
+    }
+    
+    // Set employee search field
+    if (res.data.employee) {
+      historyEmployeeSearch.value = res.data.employee.name
+    } else {
+      historyEmployeeSearch.value = ''
+    }
+    
+    showHistoryModal.value = true
+  } catch (err) {
+    console.error('Error fetching asset history:', err)
+    Swal.fire('Error', 'Failed to load asset history', 'error')
+  }
+}
+
+const updateAssetAssignment = async () => {
+  try {
+    const payload = {
+      person_in_charge_id: historyForm.value.person_in_charge_id ?? null,
+      department: historyForm.value.department || '',
+      date_deployed: historyForm.value.dateDeployed || null,
+      date_returned: historyForm.value.dateReturned || null,
+      remarks: historyForm.value.remarks || ''
+    }
+
+    await api.put(`/assets/${selectedAsset.value.id}`, payload)
+    Swal.fire('Updated!', 'Asset assignment updated successfully.', 'success')
+    
+    showHistoryModal.value = false
+    await userStore.fetchAssets()
+    
+    // Refresh the history if modal is reopened
+    if (selectedAsset.value) {
+      await viewHistory(selectedAsset.value)
+    }
+  } catch (err: any) {
+    Swal.fire('Error', err.response?.data?.message || 'Update failed', 'error')
+  }
+}
+
+/* ------------------
+ Edit History Entry
+------------------ */
+const openEditHistoryModal = (history: any) => {
+  editingHistory.value = history
+  
+  historyEditForm.value = {
+    employee_id: history.employee_id ?? undefined,
+    department: history.department || '',
+    date_deployed: history.date_deployed || '',
+    date_returned: history.date_returned || '',
+    remarks: history.remarks || ''
+  }
+  
+  // Set employee search field
+  if (history.employee) {
+    historyEditEmployeeSearch.value = history.employee.name
+  } else {
+    historyEditEmployeeSearch.value = ''
+  }
+  
+  showEditHistoryModal.value = true
+}
+
+const updateHistoryEntry = async () => {
+  try {
+    const payload = {
+      employee_id: historyEditForm.value.employee_id ?? null,
+      department: historyEditForm.value.department || '',
+      date_deployed: historyEditForm.value.date_deployed || null,
+      date_returned: historyEditForm.value.date_returned || null,
+      remarks: historyEditForm.value.remarks || ''
+    }
+
+    await api.put(`/asset-histories/${editingHistory.value.id}`, payload)
+    Swal.fire('Updated!', 'History entry updated successfully.', 'success')
+    
+    showEditHistoryModal.value = false
+    
+    // Refresh the asset history
+    await viewHistory(selectedAsset.value)
+  } catch (err: any) {
+    Swal.fire('Error', err.response?.data?.message || 'Update failed', 'error')
+  }
+}
+
+/* ------------------
+ Delete History Entry
+------------------ */
+const deleteHistoryEntry = async (historyId: number) => {
+  const res = await Swal.fire({
+    title: 'Delete this history entry?',
+    text: 'This action cannot be undone.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete it',
+    confirmButtonColor: '#dc2626',
+    cancelButtonText: 'Cancel'
+  })
+
+  if (!res.isConfirmed) return
+
+  try {
+    await api.delete(`/asset-histories/${historyId}`)
+    Swal.fire('Deleted!', 'History entry has been removed.', 'success')
+    
+    // Refresh the asset history
+    await viewHistory(selectedAsset.value)
+  } catch (err: any) {
+    Swal.fire('Error', err.response?.data?.message || 'Failed to delete history entry', 'error')
+  }
+}
 
 /* ------------------
  Pagination & Filters
@@ -283,7 +474,7 @@ watch([selectedCategory, selectedCompany, searchQuery], () => {
  Payload Mapper
 ------------------ */
 const mapFormToPayload = (f: AssetForm) => ({
-  person_in_charge_id: f.person_in_charge_id ?? null, // ensures null if undefined
+  person_in_charge_id: f.person_in_charge_id ?? null,
   department: typeof f.department === 'string' ? f.department : '',
 
   invoice_number: f.invoiceNumber || '',
@@ -302,8 +493,6 @@ const mapFormToPayload = (f: AssetForm) => ({
   category_id: f.categoryId ?? null,
   company_id: f.companyId ?? null,
   is_active: f.is_active ?? true,
-
-  
 })
 
 /* ------------------
@@ -352,10 +541,6 @@ const openEditModal = (asset: Asset) => {
     specs: asset.specs || '',
     asset_info: asset.asset_info || '',
     remarks: asset.remarks || '',
-    person_in_charge_id: asset.person_in_charge_id ?? undefined,
-    department: asset.department || '', // Use asset.department directly
-    dateDeployed: asset.date_deployed || '',
-    dateReturned: asset.date_returned || '',
     categoryId: asset.category_id ?? undefined,
     companyId: asset.company_id ?? undefined,
     is_active: asset.is_active ?? true,
@@ -536,7 +721,6 @@ const initData = async () => {
 }
 
 const handleTagCreated = async (assetId: number, uniqueCode: string) => {
-  // Refresh the asset list to get updated data with the new unique code
   await userStore.fetchAssets()
 }
 
@@ -608,11 +792,10 @@ initData()
             <th class="px-3 py-1 font-semibold w-24">Category</th>
             <th class="px-3 py-1 font-semibold w-20">Invoice #</th>
             <th class="px-3 py-1 font-semibold w-20">Invoice Date</th>
-            <!-- <th class="px-3 py-1 font-semibold w-16">Cost</th> -->
             <th class="px-3 py-1 font-semibold w-20">Model #</th>
             <th class="px-3 py-1 font-semibold w-24">Supplier</th>
             <th class="px-3 py-1 font-semibold w-32">Specification</th>
-            <th class="px-3 py-1 font -semibold w-32">Asset Info</th>
+            <th class="px-3 py-1 font-semibold w-32">Asset Info</th>
             <th class="px-3 py-1 font-semibold w-20 text-center">Actions</th>
           </tr>
         </thead>
@@ -622,7 +805,6 @@ initData()
             <td class="px-3 py-1 break-words uppercase">{{ asset.category?.name || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_date || '-' }}</td>
-            <!-- <td class="px-3 py-1 whitespace-nowrap">{{ asset.cost ?? '-' }}</td> -->
             <td class="px-3 py-1 break-words uppercase">{{ asset.model_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.specs || '-' }}</td>
@@ -666,30 +848,7 @@ initData()
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-bold mb-3">{{ isEditing ? 'Edit Asset' : 'Create New Asset' }}</h2>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <!-- Assigned Employee (Searchable) -->
-        <div v-if="isEditing && user.role === 'admin'" class="relative"> 
-          <label class="block text-sm font-medium mb-1">
-            Assigned Employee
-          </label>
-
-          <input v-model="employeeSearch" v-if = "user.role === 'admin'" type="text" placeholder="Search employee..." class="w-full border px-2 py-1 rounded text-sm border-gray-300" @focus="showEmployeeList = true"/>
-          <!-- Suggestions -->
-          <ul v-if="showEmployeeList && filteredEmployees.length" class="absolute z-10 w-full bg-white border rounded shadow max-h-48 overflow-y-auto text-sm">
-            <li v-for="emp in filteredEmployees" :key="emp.id" class="px-3 py-2 hover:bg-gray-100 cursor-pointer" @click="selectEmployee(emp)">
-              {{ emp.name }} <span class="text-gray-400">({{ emp.department }})</span>
-            </li>
-          </ul>
-        </div>
-
-      <!-- Department (auto-filled) -->
-      <div v-if="isEditing &&  user.role === 'admin'">
-        <label class="block text-sm font-medium mb-1">
-          Department
-        </label>
-        <input type="text" :value="form.department" disabled class="w-full border px-2 py-1 rounded text-sm bg-gray-100"/>
-      </div>
-
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Company -->
         <div>
           <label class="block text-sm font-medium mb-1">Company <span class="text-red-500">*</span></label>
@@ -709,6 +868,7 @@ initData()
           </select>
           <p v-if="errors.categoryId" class="text-xs text-red-500 mt-1">{{ errors.categoryId }}</p>
         </div>
+
         <!-- Invoice Number -->
         <div>
           <label class="block text-sm font-medium mb-1">Invoice Number <span class="text-red-500">*</span></label>
@@ -750,7 +910,6 @@ initData()
         </div>
 
         <!-- Asset info  -->
-
         <div class="col-span-1 md:col-span-2">
           <label class="block text-sm font-medium mb-1">Asset info</label>
           <textarea v-model="form.asset_info" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y"></textarea>
@@ -761,127 +920,302 @@ initData()
           <label class="block text-sm font-medium mb-1">Remarks</label>
           <textarea v-model="form.remarks" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
         </div>
-
-        <!-- Date Deployed -->
-        <div v-if="isEditing && user.role === 'admin'">
-          <label class="block text-sm font-medium mb-1">
-            Date Deployed
-          </label>
-          <input type="date" v-model="form.dateDeployed" :disabled="!!form.dateReturned" class="w-full border px-2 py-1 rounded text-sm"/>
-        </div>
-
-        <!-- Date Returned -->
-        <div v-if="isEditing &&  user.role === 'admin'">
-          <label class="block text-sm font-medium mb-1">
-            Date Returned
-          </label>
-          <input type="date" v-model="form.dateReturned"  class="w-full border px-2 py-1 rounded text-sm"/>
-        </div>
-        </div>
+      </div>
 
       <div class="flex justify-end gap-2 mt-4">
         <button @click="showCreateModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Cancel</button>
         <button 
           @click="form.is_active = !form.is_active"
-          :class="form.is_active ? 'bg-emerald-600 text-white' : 'bg-red-500 text-white-700'"
-          class="px-4 py-1 rounded text-sm font-semibold transition">{{ form.is_active ? 'Active' : 'Inactive' }}</button>
+          :class="form.is_active ? 'bg-emerald-600 text-white' : 'bg-red-500 text-white'"
+          class="px-4 py-1 rounded text-sm font-semibold transition">
+          {{ form.is_active ? 'Active' : 'Inactive' }}
+        </button>
         <button @click="submitForm" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">Submit</button>
       </div>
     </div>
   </div>
-  <!-- Asset History -->
-  <div v-if="showHistoryModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+
+  <!-- Asset History Modal -->
+  <div v-if="showHistoryModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showHistoryModal = false">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
 
       <!-- Header -->
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold">Asset Details</h2>
-        <button @click="showHistoryModal = false" class="text-gray-600 hover:text-gray-900">✕</button>
+        <h2 class="text-lg font-bold">Asset Details & Assignment</h2>
+        <button @click="showHistoryModal = false" class="text-gray-600 hover:text-gray-900 text-2xl">&times;</button>
       </div>
-      
+
+      <!-- Assignment Form -->
+      <div v-if="user.role === 'admin'" class="bg-white-50 p-4 rounded-lg mb-6">
+        <h3 class="font-semibold mb-3 text-black-900">Update Assignment</h3>
+        
+        <!-- Assigned Employee (Searchable) -->
+        <div class="relative mb-4"> 
+          <label class="block text-sm font-medium mb-1">Assigned Employee</label>
+
+          <div class="flex gap-2">
+            <div class="flex-1 relative">
+              <input v-model="historyEmployeeSearch" type="text" placeholder="Search employee..." class="w-full border px-2 py-1 rounded text-sm border-gray-300" 
+              @focus="showHistoryEmployeeList = true"/>
+              
+              <!-- Suggestions -->
+              <ul v-if="showHistoryEmployeeList && filteredHistoryEmployees.length" class="absolute z-10 w-full bg-white border rounded shadow max-h-48 overflow-y-auto text-sm mt-1">
+                <li v-for="emp in filteredHistoryEmployees" :key="emp.id" class="px-3 py-2 hover:bg-gray-100 cursor-pointer" 
+                  @click="selectHistoryEmployee(emp)">{{ emp.name }} <span class="text-gray-400">({{ emp.department }})</span>
+                </li>
+              </ul>
+            </div>
+            
+            <button 
+              v-if="historyForm.person_in_charge_id" @click="clearHistoryEmployee" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+              title="Clear employee (mark as returned)">Clear</button>
+          </div>
+        </div>
+
+        <!-- Department (auto-filled) -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1">Department</label>
+          <input type="text" v-model="historyForm.department" disabled class="w-full border px-2 py-1 rounded text-sm bg-gray-100"/>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <!-- Date Deployed -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Date Deployed</label>
+            <input type="date" v-model="historyForm.dateDeployed" class="w-full border px-2 py-1 rounded text-sm"/>
+          </div>
+
+          <!-- Date Returned -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Date Returned</label>
+            <input type="date" v-model="historyForm.dateReturned" class="w-full border px-2 py-1 rounded text-sm"/>
+          </div>
+        </div>
+
+        <!-- Remarks Field -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1">Remarks</label>
+          <textarea v-model="historyForm.remarks" rows="3" placeholder="Add any notes or remarks about this assignment..."class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
+        </div>
+
+        <!-- Update Button -->
+        <div class="mt-4">
+          <button @click="updateAssetAssignment" class="w-full bg-emerald-600 text-white py-2 rounded hover:bg-emerald-700 font-medium">
+            💾 Save Assignment Changes
+          </button>
+        </div>
+      </div>
+
+      <hr class="my-4">
+
       <!-- Asset Info -->
+      <h3 class="font-semibold mb-2">Asset Information</h3>
       <div class="grid grid-cols-2 gap-4 text-sm mb-6">
-        <p><b>Company:</b> {{ selectedAsset.company?.name || '—' }}</p>
-        <p><b>Category:</b> {{ selectedAsset.category?.name || '—' }}</p>
-        <p><b>Model:</b> {{ selectedAsset.model_number || '—' }}</p>
-        <p><b>Supplier:</b> {{ selectedAsset.supplier || '—' }}</p>
+        <p><b>Company:</b> {{ selectedAsset?.company?.name || '—' }}</p>
+        <p><b>Category:</b> {{ selectedAsset?.category?.name || '—' }}</p>
+        <p><b>Model:</b> {{ selectedAsset?.model_number || '—' }}</p>
+        <p><b>Supplier:</b> {{ selectedAsset?.supplier || '—' }}</p>
+        <p><b>Invoice #:</b> {{ selectedAsset?.invoice_number || '—' }}</p>
+        <p><b>Specs:</b> {{ selectedAsset?.specs || '—' }}</p>
       </div>
 
       <hr class="my-4">
 
       <!-- Current Owner -->
-      <h3 class="font-semibold mb-2">Current Owner</h3>
-      <div class="grid grid-cols-3 gap-4 text-sm mb-4">
-        <p><b>Name:</b> {{ selectedAsset.employee?.name || '—' }}</p>
-        <p><b>Department:</b> {{ selectedAsset.department || '—' }}</p>
-        <p><b>Date Deployed:</b> {{ selectedAsset.date_deployed || '—' }}</p>
+      <h3 class="font-semibold mb-2">Current Assignment</h3>
+      <div class="grid grid-cols-3 gap-4 text-sm mb-4 bg-gray-50 p-3 rounded">
+        <p><b>Employee:</b> {{ selectedAsset?.employee?.name || 'Not Assigned' }}</p>
+        <p><b>Department:</b> {{ selectedAsset?.department || '—' }}</p>
+        <p><b>Date Deployed:</b> {{ selectedAsset?.date_deployed || '—' }}</p>
       </div>
 
       <hr class="my-4">
 
       <!-- Assignment History -->
-      <h3 class="font-semibold mb-2">Previous Owners</h3>
-      <table class="w-full text-sm border border-gray-300">
-        <thead class="bg-gray-100">
-          <tr>
-            <th class="p-2 border">Employee</th>
-            <th class="p-2 border">Department</th>
-            <th class="p-2 border">Deployed</th>
-            <th class="p-2 border">Returned</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="h in selectedAsset.histories" :key="h.id">
-            <td class="p-2 border">{{ h.employee?.name || '—' }}</td>
-            <td class="p-2 border">{{ h.department || '—' }}</td>
-            <td class="p-2 border">{{ h.date_deployed || '—' }}</td>
-            <td class="p-2 border">{{ h.date_returned || '—' }}</td>
-          </tr>
-          <tr v-if="selectedAsset.histories.length === 0">
-            <td colspan="4" class="p-2 text-center text-gray-500">No previous owners</td>
-          </tr>
-        </tbody>
-      </table>
+      <h3 class="font-semibold mb-2">Assignment History</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border border-gray-300">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="p-2 border">Employee</th>
+              <th class="p-2 border">Department</th>
+              <th class="p-2 border">Deployed</th>
+              <th class="p-2 border">Returned</th>
+              <th class="p-2 border">Remarks</th>
+              <th v-if="user.role === 'admin'" class="p-2 border w-24">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="h in selectedAsset?.histories" :key="h.id" class="hover:bg-gray-50">
+              <td class="p-2 border">{{ h.employee?.name || '—' }}</td>
+              <td class="p-2 border">{{ h.department || '—' }}</td>
+              <td class="p-2 border">{{ h.date_deployed || '—' }}</td>
+              <td class="p-2 border">{{ h.date_returned || '—' }}</td>
+              <td class="p-2 border">{{ h.remarks || '—' }}</td>
+              <td v-if="user.role === 'admin'" class="p-2 border text-center">
+                <div class="flex gap-1 justify-center">
+                  <button 
+                    @click="openEditHistoryModal(h)"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium"
+                    title="Edit"
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    @click="deleteHistoryEntry(h.id)"
+                    class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium"
+                    title="Delete"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!selectedAsset?.histories || selectedAsset.histories.length === 0">
+              <td :colspan="user.role === 'admin' ? 6 : 5" class="p-2 text-center text-gray-500">
+                No previous assignments
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
     </div>
   </div>
 
- <!-- Export to Excel modal -->
-<div v-if="showExportModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-  <!-- modal -->
-  <div class="relative bg-white rounded-2xl shadow-xl p-6 w-96 max-w-full z-50">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-semibold text-gray-800">Select Fields to Export</h2>
-      <button @click="showExportModal = false" class="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
+  <!-- Edit History Modal -->
+  <div v-if="showEditHistoryModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showEditHistoryModal = false">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+      
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-bold">Edit History Entry</h2>
+        <button @click="showEditHistoryModal = false" class="text-gray-600 hover:text-gray-900 text-2xl">&times;</button>
+      </div>
+
+      <!-- Employee Search -->
+      <div class="relative mb-4">
+        <label class="block text-sm font-medium mb-1">Employee</label>
+        <input 
+          v-model="historyEditEmployeeSearch" 
+          type="text" 
+          placeholder="Search employee..." 
+          class="w-full border px-2 py-1 rounded text-sm border-gray-300" 
+          @focus="showHistoryEditEmployeeList = true"
+        />
+        
+        <!-- Suggestions -->
+        <ul v-if="showHistoryEditEmployeeList && filteredHistoryEditEmployees.length" class="absolute z-10 w-full bg-white border rounded shadow max-h-48 overflow-y-auto text-sm mt-1">
+          <li 
+            v-for="emp in filteredHistoryEditEmployees" 
+            :key="emp.id" 
+            class="px-3 py-2 hover:bg-gray-100 cursor-pointer" 
+            @click="selectHistoryEditEmployee(emp)"
+          >
+            {{ emp.name }} <span class="text-gray-400">({{ emp.department }})</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Department -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Department</label>
+        <input 
+          type="text" 
+          v-model="historyEditForm.department" 
+          disabled 
+          class="w-full border px-2 py-1 rounded text-sm bg-gray-100"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <!-- Date Deployed -->
+        <div>
+          <label class="block text-sm font-medium mb-1">Date Deployed</label>
+          <input 
+            type="date" 
+            v-model="historyEditForm.date_deployed" 
+            class="w-full border px-2 py-1 rounded text-sm"
+          />
+        </div>
+
+        <!-- Date Returned -->
+        <div>
+          <label class="block text-sm font-medium mb-1">Date Returned</label>
+          <input 
+            type="date" 
+            v-model="historyEditForm.date_returned" 
+            class="w-full border px-2 py-1 rounded text-sm"
+          />
+        </div>
+      </div>
+
+      <!-- Remarks -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Remarks</label>
+        <textarea 
+          v-model="historyEditForm.remarks" 
+          rows="3" 
+          placeholder="Add any notes or remarks..."
+          class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"
+        ></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-2">
+        <button 
+          @click="showEditHistoryModal = false" 
+          class="px-4 py-2 bg-gray-300 rounded text-sm hover:bg-gray-400"
+        >
+          Cancel
+        </button>
+        <button 
+          @click="updateHistoryEntry" 
+          class="px-4 py-2 bg-emerald-600 text-white rounded text-sm hover:bg-emerald-700 font-medium"
+        >
+          💾 Save Changes
+        </button>
+      </div>
+
     </div>
-    
-    <!-- Select All Checkbox -->
-    <div class="mb-3 pb-3 border-b border-gray-200">
-      <label class="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors">
-        <input type="checkbox" v-model="selectAll"@change="toggleSelectAll"class="mr-2 h-5 w-5 text-green-500 border-gray-300 rounded focus:ring-green-400 cursor-pointer"/>
-        <span class="text-gray-800 font-semibold select-none">Select All Fields</span>
-      </label>
-    </div>
-    
-    <!-- Field Checkboxes -->
-    <div class="max-h-64 overflow-y-auto border rounded p-3 mb-4 bg-gray-50">
-      <div v-for="field in allFields" :key="field.key" class="flex items-center mb-2 last:mb-0">
-        <input type="checkbox"v-model="exportFields":value="field.key"class="mr-2 h-4 w-4 text-green-500 border-gray-300 rounded focus:ring-green-400 cursor-pointer"/>
-        <label class="text-gray-700 text-sm select-none cursor-pointer">{{ field.label }}</label>
+  </div>
+
+  <!-- Export to Excel modal -->
+  <div v-if="showExportModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+    <div class="relative bg-white rounded-2xl shadow-xl p-6 w-96 max-w-full z-50">
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-800">Select Fields to Export</h2>
+        <button @click="showExportModal = false" class="text-gray-400 hover:text-gray-600 transition-colors">✕</button>
+      </div>
+      
+      <!-- Select All Checkbox -->
+      <div class="mb-3 pb-3 border-b border-gray-200">
+        <label class="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors">
+          <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" class="mr-2 h-5 w-5 text-green-500 border-gray-300 rounded focus:ring-green-400 cursor-pointer"/>
+          <span class="text-gray-800 font-semibold select-none">Select All Fields</span>
+        </label>
+      </div>
+      
+      <!-- Field Checkboxes -->
+      <div class="max-h-64 overflow-y-auto border rounded p-3 mb-4 bg-gray-50">
+        <div v-for="field in allFields" :key="field.key" class="flex items-center mb-2 last:mb-0">
+          <input type="checkbox" v-model="exportFields" :value="field.key" class="mr-2 h-4 w-4 text-green-500 border-gray-300 rounded focus:ring-green-400 cursor-pointer"/>
+          <label class="text-gray-700 text-sm select-none cursor-pointer">{{ field.label }}</label>
+        </div>
+      </div>
+      
+      <!-- Actions -->
+      <div class="flex justify-end space-x-3">
+        <button @click="showExportModal = false" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
+          Cancel
+        </button>
+        <button @click="exportExcel" class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors">
+          Export
+        </button>
       </div>
     </div>
-    
-    <!-- Actions -->
-    <div class="flex justify-end space-x-3">
-      <button @click="showExportModal = false"class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors">
-        Cancel
-      </button>
-      <button @click="exportExcel"class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition-colors">
-        Export
-      </button>
-    </div>
   </div>
-</div>
-<AssetFormat ref="tagModalRef" @tagCreated="handleTagCreated" />
+
+  <AssetFormat ref="tagModalRef" @tagCreated="handleTagCreated" />
 </template>

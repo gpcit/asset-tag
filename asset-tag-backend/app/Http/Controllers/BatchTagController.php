@@ -8,9 +8,9 @@ use App\Models\BatchTag;
 
 class BatchTagController extends Controller
 {
-    
-    //    GET ALL TAGS (NOT DELETED)
-    
+    /**
+     * GET ALL TAGS (NOT DELETED)
+     */
     public function index()
     {
         $tags = BatchTag::whereNull('deleted_at')
@@ -24,9 +24,9 @@ class BatchTagController extends Controller
         return response()->json($tags);
     }
 
-    
-    //    STORE TAG
-    
+    /**
+     * STORE TAG
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -56,9 +56,9 @@ class BatchTagController extends Controller
         ]);
     }
 
-    
-    //    SOFT DELETE
-    
+    /**
+     * SOFT DELETE SINGLE TAG
+     */
     public function destroy($id)
     {
         $tag = BatchTag::findOrFail($id);
@@ -70,20 +70,34 @@ class BatchTagController extends Controller
         ]);
     }
 
-    
-    //    MARK ALL AS PRINTED
-    
-    public function markPrinted()
+    /**
+     * MARK SINGLE TAG AS PRINTED
+     */
+    public function markPrinted($id)
     {
-        BatchTag::whereNull('deleted_at')
-            ->where('print_status', 'not_printed')
-            ->update([
-                'print_status' => 'printed'
-            ]);
+        $tag = BatchTag::findOrFail($id);
+        $tag->update(['print_status' => 'printed']);
 
         return response()->json([
             'success' => true,
-            'message' => 'All tags marked as printed.'
+            'message' => 'Tag marked as printed.'
+        ]);
+    }
+
+    /**
+     * DELETE ALL PRINTED TAGS (SOFT DELETE)
+     */
+    public function deletePrinted()
+    {
+        // Soft delete all tags where print_status is 'printed'
+        $deletedCount = BatchTag::whereNull('deleted_at')
+            ->where('print_status', 'printed')
+            ->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "Deleted {$deletedCount} printed tags successfully.",
+            'deleted_count' => $deletedCount
         ]);
     }
 }

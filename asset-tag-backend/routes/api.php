@@ -10,21 +10,26 @@ use App\Http\Controllers\BatchTagController;
 use App\Http\Controllers\ActivityLogController;
 use Illuminate\Support\Facades\Route;
 
-
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+
 Route::get('/asset_list_all', [AssetController::class, 'assetListAll']);
 Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);
 Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
 Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
 Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
+
+// Batch Tags - IMPORTANT: Specific routes BEFORE {id} routes
 Route::get('/batch-tags', [BatchTagController::class, 'index']);
 Route::post('/batch-tags/save', [BatchTagController::class, 'store']);
-Route::delete('/batch-tags/{id}', [BatchTagController::class, 'destroy']);
+Route::delete('/batch-tags/delete-printed', [BatchTagController::class, 'deletePrinted']); // MOVED BEFORE {id}
 Route::post('/batch-tags/{id}/mark-printed', [BatchTagController::class, 'markPrinted']);
+Route::delete('/batch-tags/{id}', [BatchTagController::class, 'destroy']);
+
 Route::delete('/asset-histories/{id}', [AssetController::class, 'destroyHistory']);
 Route::put('/asset-histories/{id}', [AssetController::class, 'updateHistory']);
+
 // Employee
 Route::get('employees', [EmployeeController::class, 'index']);      // paginated list
 Route::get('employees/all', [EmployeeController::class, 'all']);   // full list for dropdowns
@@ -43,7 +48,6 @@ Route::middleware('auth:api')->group(function () {
     Route::middleware('role:admin,staff')->group(function () {
         Route::get('/dashboard/summary', [AssetController::class, 'summary']);
         Route::apiResource('assets', AssetController::class);
-        
     });
 
     Route::middleware('role:admin,staff')->group(function () {

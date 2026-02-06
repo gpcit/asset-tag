@@ -15,38 +15,8 @@ interface BatchTag {
 
 const batchTags = ref<BatchTag[]>([])
 const loading = ref(false)
-const foundAsset = ref<Asset | null>(null)
-const loadingAsset = ref(false)
 
-const searchUniqueCode = async (code: string) => {
-  if (!code) return
-  loadingAsset.value = true
-  foundAsset.value = null
-
-  try {
-    const res = await api.get('/assets/by-unique-code', { params: { unique_code: code } })
-
-    foundAsset.value = {
-      ...res.data.asset,
-      person_in_charge: res.data.asset.employee?.name || 'Unassigned',
-      department: res.data.asset.department || '',
-      asset_code: { unique_code: res.data.unique_code },
-      category: res.data.asset.category || { name: '' },
-      company: res.data.asset.company || { name: '', code: '', logo: '' },
-    }
-  } catch (err) {
-    Swal.fire({
-      icon: 'error',
-      title: 'Not Found',
-      text: 'No asset found with this unique code.'
-    })
-  } finally {
-    loadingAsset.value = false
-  }
-}
-
-  //  FETCH TAGS
-
+//  FETCH TAGS
 const fetchBatchTags = async () => {
   loading.value = true
   try {
@@ -60,9 +30,7 @@ const fetchBatchTags = async () => {
   }
 }
 
-
-  //  SOFT DELETE
-
+//  SOFT DELETE
 const softDeleteTag = async (tag: BatchTag) => {
   const result = await Swal.fire({
     title: 'Delete tag?',
@@ -84,9 +52,7 @@ const softDeleteTag = async (tag: BatchTag) => {
   }
 }
 
-
-  //  PRINT + MARK AS PRINTED
-
+//  PRINT + MARK AS PRINTED
 const printAll = async () => {
   const win = window.open('', '_blank')
   if (!win) return
@@ -153,6 +119,37 @@ const printAll = async () => {
   }
 }
 
+// Delete all that has a printed status
+const confirmDeleteAllPrinted = () => {
+  Swal.fire({
+    title: 'Delete all printed tags?',
+    text: 'This will soft delete all printed records.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
+    confirmButtonText: 'Yes, delete all'
+  }).then(result => {
+    if (result.isConfirmed) {
+      deleteAllPrinted()
+    }
+  })
+}
+
+const deleteAllPrinted = async () => {
+  try {
+    await api.delete('/batch-tags/delete-printed')
+
+    // Update frontend list immediately
+    batchTags.value = batchTags.value.filter(tag => tag.print_status !== 'printed')
+
+    Swal.fire('Deleted', 'All printed tags were deleted', 'success')
+  } catch (err) {
+    console.error(err)
+    Swal.fire('Error', 'Failed to delete printed tags', 'error')
+  }
+}
+
 onMounted(fetchBatchTags)
 </script>
 
@@ -162,7 +159,10 @@ onMounted(fetchBatchTags)
   <div class="container mx-auto p-4">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-2xl font-bold">Batch Printing Tags</h2>
-      <button class="print-btn" @click="printAll">Print All</button>
+      <div class="flex gap-3">
+        <button class="print-btn" @click="printAll">Print All</button>
+        <button class="delete-all-btn" @click="confirmDeleteAllPrinted">Delete All Printed</button>
+      </div>
     </div>
 
     <div v-if="loading" class="text-center text-gray-500">
@@ -196,14 +196,6 @@ onMounted(fetchBatchTags)
     </div>
     
   </div>
-  <div v-if="foundAsset" class="asset-details p-4 border rounded mt-4 bg-white shadow">
-  <h3>Asset Details</h3>
-  <p><strong>Unique Code:</strong> {{ foundAsset.asset_code?.unique_code }}</p>
-  <p><strong>Company:</strong> {{ foundAsset.company?.name || '-' }}</p>
-  <p><strong>Person In-charge:</strong> {{ foundAsset.person_in_charge }}</p>
-  <p><strong>Department:</strong> {{ foundAsset.department }}</p>
-  <p><strong>Category:</strong> {{ foundAsset.category?.name || '-' }}</p>
-</div>
 </template>
 
 <style scoped>
@@ -219,6 +211,20 @@ onMounted(fetchBatchTags)
 
 .print-btn:hover {
   background: #235241;
+}
+
+.delete-all-btn {
+  background: #dc2626;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+}
+
+.delete-all-btn:hover {
+  background: #b91c1c;
 }
 
 .tag {

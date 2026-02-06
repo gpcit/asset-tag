@@ -10,55 +10,82 @@ use App\Http\Controllers\BatchTagController;
 use App\Http\Controllers\ActivityLogController;
 use Illuminate\Support\Facades\Route;
 
-// Public routes
+// =====================================================
+// PUBLIC ROUTES - Only things that don't need tracking
+// =====================================================
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+// Public asset lookup (for barcode scanners, public displays, etc.)
 Route::get('/asset_list_all', [AssetController::class, 'assetListAll']);
 Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);
 Route::get('/assets/by-unique-code', [AssetController::class, 'getAssetByUniqueCode']);
-Route::get('/assets/unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
-Route::post('/assets/unique-code', [AssetController::class, 'saveUniqueCode']);
 
-// Batch Tags - IMPORTANT: Specific routes BEFORE {id} routes
-Route::get('/batch-tags', [BatchTagController::class, 'index']);
-Route::post('/batch-tags/save', [BatchTagController::class, 'store']);
-Route::delete('/batch-tags/delete-printed', [BatchTagController::class, 'deletePrinted']); // MOVED BEFORE {id}
-Route::post('/batch-tags/{id}/mark-printed', [BatchTagController::class, 'markPrinted']);
-Route::delete('/batch-tags/{id}', [BatchTagController::class, 'destroy']);
-
-Route::delete('/asset-histories/{id}', [AssetController::class, 'destroyHistory']);
-Route::put('/asset-histories/{id}', [AssetController::class, 'updateHistory']);
-
-// Employee
-Route::get('employees', [EmployeeController::class, 'index']);      // paginated list
-Route::get('employees/all', [EmployeeController::class, 'all']);   // full list for dropdowns
-Route::post('employees', [EmployeeController::class, 'store']);    // create
-Route::put('employees/{employee}', [EmployeeController::class, 'update']); // update
-Route::delete('employees/{employee}', [EmployeeController::class, 'destroy']); // delete
-Route::patch('employees/{employee}', [EmployeeController::class, 'update']);
-
-// Any authenticated user
+// =====================================================
+// AUTHENTICATED ROUTES - All user actions are tracked
+// =====================================================
 Route::middleware('auth:api')->group(function () {
-    Route::get('/user', [AuthController::class, 'me']); // no role middleware
+    
+    // Basic auth routes
+    Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/logout-all', [AuthController::class, 'logoutAll']);
 
-    // Staff + Admin routes
+    // =====================================================
+    // STAFF + ADMIN ROUTES - Most operations happen here
+    // =====================================================
     Route::middleware('role:admin,staff')->group(function () {
+        
+        // Dashboard
         Route::get('/dashboard/summary', [AssetController::class, 'summary']);
+        
+        // Asset unique code routes - MUST be before assets/{asset}
+        Route::prefix('assets')->group(function () {
+            Route::get('unique-code-suggestions', [AssetController::class, 'suggestUniqueCodes']);
+            Route::post('unique-code', [AssetController::class, 'saveUniqueCode']);
+        });
+        
+        // Asset Histories
+        Route::delete('/asset-histories/{id}', [AssetController::class, 'destroyHistory']);
+        Route::put('/asset-histories/{id}', [AssetController::class, 'updateHistory']);
+        
+        // Assets (full CRUD) - MUST come after specific routes
         Route::apiResource('assets', AssetController::class);
-    });
-
-    Route::middleware('role:admin,staff')->group(function () {
+        
+        // Batch Tags - IMPORTANT: Specific routes BEFORE {id} routes
+        Route::get('/batch-tags', [BatchTagController::class, 'index']);
+        Route::post('/batch-tags/save', [BatchTagController::class, 'store']);
+        Route::delete('/batch-tags/delete-printed', [BatchTagController::class, 'deletePrinted']);
+        Route::post('/batch-tags/{id}/mark-printed', [BatchTagController::class, 'markPrinted']);
+        Route::delete('/batch-tags/{id}', [BatchTagController::class, 'destroy']);
+        
+        // Categories (full CRUD)
         Route::apiResource('categories', CategoryController::class);
+        
+        // Companies (full CRUD)
         Route::apiResource('companies', CompanyController::class);
+        
+        // Employees (full CRUD)
+        Route::get('employees', [EmployeeController::class, 'index']);
+        Route::get('employees/all', [EmployeeController::class, 'all']);
+        Route::post('employees', [EmployeeController::class, 'store']);
+        Route::put('employees/{employee}', [EmployeeController::class, 'update']);
+        Route::patch('employees/{employee}', [EmployeeController::class, 'update']);
+        Route::delete('employees/{employee}', [EmployeeController::class, 'destroy']);
+        
+        // Server Accounts (full CRUD)
         Route::apiResource('servers', ServerAccountController::class);
     });
 
-    Route::middleware(['auth:api', 'role:admin'])->group(function () {
+    // =====================================================
+    // ADMIN-ONLY ROUTES
+    // =====================================================
+    Route::middleware('role:admin')->group(function () {
+        // User management
         Route::get('/users', [AuthController::class, 'index']);
         Route::patch('/users/{user}/role', [AuthController::class, 'updateRole']);
+        
+        // Activity logs
         Route::get('/activity-logs', [ActivityLogController::class, 'index']);
         Route::get('/activity-logs/{activityLog}', [ActivityLogController::class, 'show']);
     });

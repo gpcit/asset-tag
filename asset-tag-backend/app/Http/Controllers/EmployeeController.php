@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use Illuminate\Http\Request;
-
+use App\Models\ActivityLog;
 class EmployeeController extends Controller
 {
     public function show(Employee $employee)
@@ -55,6 +55,17 @@ class EmployeeController extends Controller
         $data['is_active'] = 1; // default active
         $employee = Employee::create($data);
 
+         // Log the activity
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'created',
+            'module' => 'Employee',
+            'record_id' => $employee->id,
+            'old_data' => null,
+            'new_data' => $employee->toArray(),
+        ]);
+
         return response()->json($employee, 201);
     }
 
@@ -69,6 +80,17 @@ class EmployeeController extends Controller
 
         $employee->update($data);
 
+         // Log the activity
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'created',
+            'module' => 'Employee',
+            'record_id' => $employee->id,
+            'old_data' => null,
+            'new_data' => $employee->toArray(),
+        ]);
+
         return response()->json($employee);
     }
 
@@ -76,6 +98,19 @@ class EmployeeController extends Controller
     public function destroy(Employee $employee)
     {
         $employee->delete(); // soft delete
+
+
+         // Log the activity
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'created',
+            'module' => 'Employee',
+            'record_id' => $employee->id,
+            'old_data' => null,
+            'new_data' => $employee->toArray(),
+        ]);
+        
         return response()->json(null, 204);
     }
 }

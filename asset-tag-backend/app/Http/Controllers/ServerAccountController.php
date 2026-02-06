@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\ServerAccount;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Models\ActivityLog;
 
 class ServerAccountController extends Controller
 {
@@ -71,6 +72,22 @@ class ServerAccountController extends Controller
         
         $server = ServerAccount::create($validated);
         
+         // Log the activity (hide sensitive data)
+        $logData = $server->toArray();
+        if (isset($logData['password'])) {
+            $logData['password'] = '***HIDDEN***';
+        }
+
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'created',
+            'module' => 'Server Account',
+            'record_id' => $server->id,
+            'old_data' => null,
+            'new_data' => $logData,
+        ]);
+
         return response()->json($server, 201);
     }
     
@@ -98,6 +115,29 @@ class ServerAccountController extends Controller
         }
         
         $server->update($validated);
+
+        $oldData = $server->toArray();
+        if (isset($oldData['password'])) {
+            $oldData['password'] = '***HIDDEN***';
+        }
+
+        $server->update($request->all());
+
+        $newData = $server->toArray();
+        if (isset($newData['password'])) {
+            $newData['password'] = '***HIDDEN***';
+        }
+
+        // Log the activity
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'updated',
+            'module' => 'Server Account',
+            'record_id' => $server->id,
+            'old_data' => $oldData,
+            'new_data' => $newData,
+        ]);
         
         return response()->json($server);
     }
@@ -112,6 +152,25 @@ class ServerAccountController extends Controller
         }
         
         $server->delete();
+
+        $oldData = $server->toArray();
+        if (isset($oldData['password'])) {
+            $oldData['password'] = '***HIDDEN***';
+        }
+
+        $server->delete();
+
+        // Log the activity
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'deleted',
+            'module' => 'Server Account',
+            'record_id' => $server->id,
+            'old_data' => $oldData,
+            'new_data' => null,
+        ]);
+
         
         return response()->json(['message' => 'Record deleted successfully']);
     }

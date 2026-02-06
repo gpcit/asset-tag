@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -38,6 +39,20 @@ class CategoryController extends Controller
 
         $category = Category::create($data);
 
+        // Log the activity
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'created',
+            'module' => 'Category',
+            'record_id' => $category->id,
+            'old_data' => null,
+            'new_data' => [
+                'name' => $category->name,
+                'slug' => $category->slug,
+            ],
+        ]);
+
         return response()->json([
             'id' => $category->id,
             'name' => $category->name
@@ -50,7 +65,25 @@ class CategoryController extends Controller
     public function destroy($id)
     {
         $category = Category::findOrFail($id);
+
+        // Capture old data before deletion
+        $oldData = [
+            'name' => $category->name,
+            'slug' => $category->slug,
+        ];
+
         $category->delete();
+
+        // Log the activity
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action' => 'deleted',
+            'module' => 'Category',
+            'record_id' => $id,
+            'old_data' => $oldData,
+            'new_data' => null,
+        ]);
 
         return response()->json([
             'message' => 'Category deleted successfully'
@@ -63,8 +96,23 @@ class CategoryController extends Controller
     // public function restore($id)
     // {
     //     $category = Category::withTrashed()->findOrFail($id);
+    //     
     //     $category->restore();
-
+    //
+    //     // Log the activity
+    //     ActivityLog::create([
+    //         'user_name' => auth()->user()->name ?? 'System',
+    //         'user_role' => auth()->user()->role ?? 'system',
+    //         'action' => 'restored',
+    //         'module' => 'Category',
+    //         'record_id' => $id,
+    //         'old_data' => null,
+    //         'new_data' => [
+    //             'name' => $category->name,
+    //             'slug' => $category->slug,
+    //         ],
+    //     ]);
+    //
     //     return response()->json([
     //         'message' => 'Category restored successfully'
     //     ]);

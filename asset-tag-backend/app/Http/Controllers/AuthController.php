@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -28,6 +29,21 @@ class AuthController extends Controller
             'role' => 'staff',
         ]);
 
+        // Log registration
+        ActivityLog::create([
+            'user_name' => $user->name,
+            'user_role' => $user->role,
+            'action' => 'registered',
+            'module' => 'User',
+            'record_id' => $user->id,
+            'old_data' => null,
+            'new_data' => [
+                'name' => $user->name,
+                'username' => $user->username,
+                'role' => $user->role,
+            ],
+        ]);
+
         return response()->json([
             'user' => $user,
             'token' => JWTAuth::fromUser($user),
@@ -43,9 +59,26 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
+        // Get the authenticated user
+        $user = auth()->user();
+
+        // Log successful login
+        ActivityLog::create([
+            'user_name' => $user->name,
+            'user_role' => $user->role,
+            'action' => 'logged in',
+            'module' => 'Authentication',
+            'record_id' => $user->id,
+            'old_data' => null,
+            'new_data' => [
+                'login_time' => now()->format('Y-m-d H:i:s'),
+                'ip_address' => $request->ip(),
+            ],
+        ]);
+
         return response()->json([
             'token' => $token,
-            'user' => auth()->user(),
+            'user' => $user,
         ]);
     }
 
@@ -62,7 +95,24 @@ class AuthController extends Controller
     // -------------------------
     public function logout()
     {
+        // Get user before invalidating token
+        $user = auth()->user();
+
+        // Log logout
+        ActivityLog::create([
+            'user_name' => $user->name,
+            'user_role' => $user->role,
+            'action' => 'logged out',
+            'module' => 'Authentication',
+            'record_id' => $user->id,
+            'old_data' => null,
+            'new_data' => [
+                'logout_time' => now()->format('Y-m-d H:i:s'),
+            ],
+        ]);
+
         JWTAuth::invalidate(JWTAuth::getToken());
+        
         return response()->json(['message' => 'Logged out']);
     }
 
@@ -73,6 +123,7 @@ class AuthController extends Controller
     {
         return User::select('id', 'name', 'username', 'role')->get();
     }
+
     public function users()
     {
         return User::select('id', 'name', 'username', 'role')->get();
@@ -91,7 +142,29 @@ class AuthController extends Controller
             return response()->json(['message' => 'Cannot change your own role'], 403);
         }
 
+        // Capture old data
+        $oldData = [
+            'name' => $user->name,
+            'username' => $user->username,
+            'role' => $user->role,
+        ];
+
         $user->update(['role' => $request->role]);
+
+        // Log role update
+        ActivityLog::create([
+            'user_name' => auth()->user()->name,
+            'user_role' => auth()->user()->role,
+            'action' => 'updated role',
+            'module' => 'User',
+            'record_id' => $user->id,
+            'old_data' => $oldData,
+            'new_data' => [
+                'name' => $user->name,
+                'username' => $user->username,
+                'role' => $user->role,
+            ],
+        ]);
 
         return response()->json(['message' => 'Role updated', 'user' => $user]);
     }

@@ -33,9 +33,11 @@ interface Company {
 
 const companies = ref<Company[]>([])
 const search = ref('')
-const showAddForm = ref(false)
+const showForm = ref(false)
+const isEditMode = ref(false)
+const currentEditId = ref<number | null>(null)
 
-const newCompany = ref({
+const formCompany = ref({
   name: '',
   address: '',
   contact_no: '',
@@ -63,23 +65,49 @@ const filteredCompanies = computed(() => {
   )
 })
 
-/* ================= ADD ================= */
-const addCompany = async () => {
-  if (!newCompany.value.name.trim()) {
-    Swal.fire('Error', 'Company name is required', 'error')
+/* ================= ADD / EDIT ================= */
+const openAddForm = () => {
+  isEditMode.value = false
+  currentEditId.value = null
+  resetForm()
+  showForm.value = true
+}
+
+const openEditForm = (company: Company) => {
+  isEditMode.value = true
+  currentEditId.value = company.id
+  formCompany.value = { ...company }
+  showForm.value = true
+}
+
+const saveCompany = async () => {
+  if (!formCompany.value.name.trim() || !formCompany.value.code.trim()) {
+    Swal.fire('Error', 'Company name and code are required', 'error')
     return
   }
 
   try {
-    const res = await api.post<Company>('/companies', newCompany.value)
-    companies.value.push(res.data)
+    if (isEditMode.value && currentEditId.value) {
+      // Edit company
+      const res = await api.put<Company>(`/companies/${currentEditId.value}`, formCompany.value)
+      const index = companies.value.findIndex(c => c.id === currentEditId.value)
+      if (index !== -1) companies.value[index] = res.data
+      Swal.fire('Success', 'Company updated successfully', 'success')
+    } else {
+      // Add company
+      const res = await api.post<Company>('/companies', formCompany.value)
+      companies.value.push(res.data)
+      Swal.fire('Success', 'Company added successfully', 'success')
+    }
+
     resetForm()
-    showAddForm.value = false
-    Swal.fire('Success', 'Company added successfully', 'success')
+    showForm.value = false
+    isEditMode.value = false
+    currentEditId.value = null
   } catch (err: any) {
     Swal.fire(
       'Error',
-      err.response?.data?.message || 'Failed to add company',
+      err.response?.data?.message || 'Failed to save company',
       'error'
     )
   }
@@ -112,12 +140,19 @@ const deleteCompany = async (id: number) => {
 
 /* ================= UTILS ================= */
 const resetForm = () => {
-  newCompany.value = {
+  formCompany.value = {
     name: '',
     address: '',
     contact_no: '',
     code: ''
   }
+}
+
+const cancelForm = () => {
+  resetForm()
+  showForm.value = false
+  isEditMode.value = false
+  currentEditId.value = null
 }
 
 onMounted(fetchCompanies)
@@ -133,24 +168,26 @@ onMounted(fetchCompanies)
 
       <button
         v-if="user.role === 'admin'"
-        @click="showAddForm = !showAddForm"
+        @click="openAddForm"
         class="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition"
       >
-        + Add Company
+        + {{ isEditMode ? 'Edit Company' : 'Add Company' }}
       </button>
     </div>
 
-    <!-- Add Company Form -->
+    <!-- Add / Edit Company Form -->
     <div
-      v-if="showAddForm"
+      v-if="showForm"
       class="mb-6 p-5 bg-gray-50 rounded-lg border border-gray-200"
     >
-      <h3 class="text-lg font-semibold mb-4 text-gray-700">New Company</h3>
+      <h3 class="text-lg font-semibold mb-4 text-gray-700">
+        {{ isEditMode ? 'Edit Company' : 'New Company' }}
+      </h3>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="md:col-span-2">
           <input
-            v-model="newCompany.name"
+            v-model="formCompany.name"
             type="text"
             placeholder="Company Name *"
             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
@@ -159,16 +196,16 @@ onMounted(fetchCompanies)
 
         <div class="md:col-span-2">
           <input
-            v-model="newCompany.address"
+            v-model="formCompany.address"
             type="text"
-            placeholder="Address *"
+            placeholder="Address"
             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
           />
         </div>
 
         <div>
           <input
-            v-model="newCompany.contact_no"
+            v-model="formCompany.contact_no"
             type="text"
             placeholder="Contact Number"
             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
@@ -177,7 +214,7 @@ onMounted(fetchCompanies)
 
         <div>
           <input
-            v-model="newCompany.code"
+            v-model="formCompany.code"
             type="text"
             placeholder="Company Code *"
             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
@@ -187,13 +224,13 @@ onMounted(fetchCompanies)
 
       <div class="flex gap-3 mt-4">
         <button
-          @click="addCompany"
+          @click="saveCompany"
           class="px-5 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition"
         >
-          Save
+          {{ isEditMode ? 'Update' : 'Save' }}
         </button>
         <button
-          @click="showAddForm = false"
+          @click="cancelForm"
           class="px-5 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
         >
           Cancel
@@ -228,35 +265,27 @@ onMounted(fetchCompanies)
         </thead>
 
         <tbody class="divide-y divide-gray-200">
-          <tr
-            v-for="c in filteredCompanies"
-            :key="c.id"
-            class="hover:bg-gray-50"
-          >
+          <tr v-for="c in filteredCompanies" :key="c.id" class="hover:bg-gray-50">
             <td class="px-4 py-3 font-medium">{{ c.name }}</td>
             <td class="px-4 py-3">{{ c.code }}</td>
             <td class="px-4 py-3 text-sm text-gray-600">{{ c.address || '-' }}</td>
             <td class="px-4 py-3 text-sm text-gray-600">{{ c.contact_no || '-' }}</td>
-            <td
-              v-if="user.role === 'admin'"
-              class="px-4 py-3 text-center"
-            >
-              <button
-                @click="confirmDelete(c.id, c.name)"
-                class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition text-sm"
-              >
-                Delete
-              </button>
+            <td v-if="user.role === 'admin'" class="px-4 py-3 text-center">
+             <td v-if="user.role === 'admin'" class="px-4 py-3 text-center flex justify-center gap-2">
+                <button @click="openEditForm(c)"class="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition text-sm">
+                    Edit
+                </button>
+                <button @click="confirmDelete(c.id, c.name)" class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition text-sm">
+                    Delete
+                </button>
+                </td>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <p
-      v-if="!filteredCompanies.length"
-      class="text-center text-gray-400 mt-6"
-    >
+    <p v-if="!filteredCompanies.length" class="text-center text-gray-400 mt-6">
       No companies found
     </p>
   </div>

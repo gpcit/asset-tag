@@ -12,7 +12,7 @@ import UserPermission from '@/views/UserPermission.vue'
 import AssetTagPrint from '@/views/AssetTagPrint.vue'
 import EmployeePage from '@/views/EmployeePage.vue'
 import ActivityLog from '@/views/ActivityLog.vue'
-
+import CompanyList from '@/views/CompanyList.vue'
 const routes = [
   {
     path: '/',
@@ -53,7 +53,7 @@ const routes = [
     component: AssetTag
   },
   {
-    path: '/category',
+    path: '/category_list',
     name: 'Category',
     meta: { requiresAuth: true },
     component: CategoryList
@@ -93,6 +93,12 @@ const routes = [
     name: 'ActivityLog',
     meta: { requiresAuth: true },
     component: ActivityLog
+  },
+  {
+    path: '/company_list',
+    name: 'CompanyList',
+    meta: { requiresAuth: true },
+    component: CompanyList
   }
 ]
 

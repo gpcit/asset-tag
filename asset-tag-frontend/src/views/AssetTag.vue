@@ -90,7 +90,7 @@ interface Asset {
   category_id?: number
   company_id?: number
   is_active?: boolean
-  
+
   company?: Company
   category?: Category
   employee?: Employee
@@ -443,14 +443,18 @@ const filteredAssets = computed<Asset[]>(() => {
   return userStore.assets.filter((asset: Asset) => {
     if (statusFilter.value === 'active' && !asset.is_active) return false
     if (statusFilter.value === 'inactive' && asset.is_active) return false
-
     if (selectedCategory.value !== '' && asset.category_id !== selectedCategory.value) return false
     if (selectedCompany.value !== '' && asset.company_id !== selectedCompany.value) return false
 
     if (query) {
-      const matchesCompany = asset.company?.name?.toLowerCase().includes(query)
-      const matchesAssetInfo = asset.asset_info?.toLowerCase().includes(query)
-      if (!matchesCompany && !matchesAssetInfo) return false
+      return (
+        (asset.company?.name ?? '').toLowerCase().includes(query) ||
+        (asset.asset_info ?? '').toLowerCase().includes(query) ||
+        (asset.employee?.name ?? '').toLowerCase().includes(query) ||
+        ((asset as any).person_in_charge ?? '').toLowerCase().includes(query) || // ← Add this
+        (asset.category?.name ?? '').toLowerCase().includes(query) ||
+        (asset.specs ?? '').toLowerCase().includes(query) 
+      )
     }
 
     return true
@@ -745,7 +749,7 @@ initData()
 
       <!-- Search Bar -->
       <div class="mb-4">
-        <input v-model="searchQuery" type="text" placeholder="Search by Category, Specs, Company or Asset info" class="w-full border rounded px-3 py-2 text-sm"/>
+        <input v-model="searchQuery" type="text" placeholder="Search by  Employee, Company, Category, Specs or Asset Info" class="w-full border rounded px-3 py-2 text-sm"/>
       </div>
 
       <!-- Category -->

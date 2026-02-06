@@ -8,91 +8,71 @@ use Illuminate\Http\Request;
 class CompanyController extends Controller
 {
     /**
-     * Display a listing of companies
+     * Display a listing of companies (API)
      */
     public function index()
     {
-       $companies = Companies::orderBy('name')->get();
-       return response()->json($companies);
+        return response()->json(
+            Companies::orderBy('name')->get()
+        );
     }
 
     /**
-     * Show the form for creating a new company
+     * Store a newly created company (API)
      */
-    // public function create()
-    // {
-    //     return view('companies.create');
-    // }
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name'       => 'required|string|max:255',
+            'code'       => 'required|string|max:20|unique:companies,code',
+            'contact_no' => 'nullable|string|max:100',
+            'address'    => 'required|string|max:255',
+        ]);
 
-    // /**
-    //  * Store a newly created company
-    //  */
-    // public function store(Request $request)
-    // {
-    //     $validated = $request->validate([
-    //         'name'       => 'required|string|max:255',
-    //         'code'       => 'required|string|max:20|unique:companies,code',
-    //         'contact_no' => 'nullable|string|max:100',
-    //         'address'    => 'required|string|max:255',
-    //         'location'   => 'required|string|max:100',
-    //     ]);
+        $company = Companies::create($validated);
 
-    //     Companies::create($validated);
+        return response()->json($company, 201);
+    }
 
-    //     return redirect()
-    //         ->route('companies.index')
-    //         ->with('success', 'Company added successfully.');
-    // }
+    /**
+     * Display the specified company (API)
+     */
+    public function show($id)
+    {
+        return response()->json(
+            Companies::findOrFail($id)
+        );
+    }
 
-    // /**
-    //  * Display the specified company
-    //  */
-    // public function show($id)
-    // {
-    //     $company = Companies::findOrFail($id);
-    //     return view('companies.show', compact('company'));
-    // }
+    /**
+     * Update the specified company (API)
+     */
+    public function update(Request $request, $id)
+    {
+        $company = Companies::findOrFail($id);
 
-    // /**
-    //  * Show the form for editing the specified company
-    //  */
-    // public function edit($id)
-    // {
-    //     $company = Companies::findOrFail($id);
-    //     return view('companies.edit', compact('company'));
-    // }
+        $validated = $request->validate([
+            'name'       => 'required|string|max:255',
+            'code'       => 'required|string|max:20|unique:companies,code,' . $company->id,
+            'contact_no' => 'nullable|string|max:100',
+            'address'    => 'required|string|max:255',
+        ]);
 
-    // /**
-    //  * Update the specified company
-    //  */
-    // public function update(Request $request, $id)
-    // {
-    //     $company = Companies::findOrFail($id);
+        $company->update($validated);
 
-    //     $validated = $request->validate([
-    //         'name'       => 'required|string|max:255',
-    //         'code'       => 'required|string|max:20|unique:companies,code,' . $company->id,
-    //         'contact_no' => 'nullable|string|max:100',
-    //         'address'    => 'required|string|max:255',
-    //         'location'   => 'required|string|max:100',
-    //     ]);
+        return response()->json($company);
+    }
 
-    //     $company->update($validated);
+    /**
+     * Remove the specified company (API)
+     */
+    public function destroy($id)
+    {
+        $company = Companies::findOrFail($id);
+        $company->delete();
 
-    //     return redirect()
-    //         ->route('companies.index')
-    //         ->with('success', 'Company updated successfully.');
-    // }
-
-    // /**
-    //  * Remove the specified company
-    //  */
-    // public function destroy($id)
-    // {
-    //     Companies::findOrFail($id)->delete();
-
-    //     return redirect()
-    //         ->route('companies.index')
-    //         ->with('success', 'Company deleted successfully.');
-    // }
+        return response()->json([
+            'message' => 'Company deleted successfully'
+        ]);
+    }
 }

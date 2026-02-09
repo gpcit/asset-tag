@@ -606,6 +606,7 @@ const deleteAsset = async (asset: Asset) => {
  Excel Export
 ------------------ */
 const allFields = [
+  { key: 'person_in_charge', label: 'Person In-Charge' }, // change this to the employee not person in charge
   { key: 'company_id', label: 'Company' },
   { key: 'category_id', label: 'Category' },
   { key: 'invoice_number', label: 'Invoice Number' },

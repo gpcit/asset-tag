@@ -123,7 +123,7 @@ const printAll = async () => {
 const confirmDeleteAllPrinted = () => {
   Swal.fire({
     title: 'Delete all printed tags?',
-    text: 'This will soft delete all printed records.',
+    text: 'This will delete all printed records.',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#dc2626',

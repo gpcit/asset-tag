@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\AssetInventory;
 use App\Models\AssetCode;
 use App\Models\ActivityLog;
+use App\Models\Employee;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class AssetController extends Controller
@@ -99,7 +100,7 @@ class AssetController extends Controller
     /**
      * STORE ASSET
      */
-    public function store(Request $request)
+     public function store(Request $request)
     {
         $data = $request->validate([
             'person_in_charge_id' => 'nullable|exists:employees,id',
@@ -117,6 +118,15 @@ class AssetController extends Controller
             'remarks' => 'nullable|string',
             'is_active' => 'nullable|boolean',
         ]);
+
+        // ✅ ADD: copy employee data
+        if (!empty($data['person_in_charge_id'])) {
+            $employee = Employee::find($data['person_in_charge_id']);
+            $data['person_in_charge'] = $employee?->name;
+            $data['department'] = $employee?->department;
+            $data['date_deployed'] = now()->format('Y-m-d');
+            $data['is_active'] = true;
+        }
 
         $asset = AssetInventory::create($data);
 
@@ -137,7 +147,6 @@ class AssetController extends Controller
             'date_deployed'       => 'nullable|date',
             'date_returned'       => 'nullable|date',
             'is_active'           => 'sometimes|boolean',
-
             'company_id'          => 'sometimes|exists:companies,id',
             'category_id'         => 'sometimes|exists:categories,id',
             'cost'                => 'nullable|numeric|min:0',
@@ -150,10 +159,11 @@ class AssetController extends Controller
             'remarks'             => 'nullable|string',
         ]);
 
-        // Capture old values for logging
         $oldData = $asset->only(array_keys($data));
 
-        // CASE 1: Asset is being returned
+        /**
+         * CASE 1: RETURN ASSET
+         */
         if (!empty($data['date_returned'])) {
             if ($asset->person_in_charge_id) {
                 \DB::table('asset_histories')->insert([
@@ -168,27 +178,29 @@ class AssetController extends Controller
             }
 
             $data['person_in_charge_id'] = null;
-            $data['department']          = null;
-            $data['date_deployed']       = null;
-            $data['is_active']           = false;
+            $data['person_in_charge'] = null; // ✅ ADDED
+            $data['department'] = null;
+            $data['date_deployed'] = null;
+            $data['is_active'] = false;
         }
 
-        // CASE 2: Asset is being assigned
+        /**
+         * CASE 2: ASSIGN ASSET
+         */
         if (!empty($data['person_in_charge_id'])) {
+            $employee = Employee::find($data['person_in_charge_id']);
+
+            $data['person_in_charge'] = $employee?->name; // ✅ ADDED
+            $data['department'] = $employee?->department;
             $data['date_returned'] = null;
-            if (empty($data['date_deployed'])) {
-                $data['date_deployed'] = now()->format('Y-m-d');
-            }
+            $data['date_deployed'] = $data['date_deployed'] ?? now()->format('Y-m-d');
             $data['is_active'] = true;
         }
 
-        // Update asset
         $asset->update($data);
 
-        // Capture changed fields
         $changes = $asset->getChanges();
 
-        // Log update if something changed
         if (!empty($changes)) {
             ActivityLog::create([
                 'user_id'   => auth()->id() ?? 1,
@@ -203,13 +215,7 @@ class AssetController extends Controller
         }
 
         return response()->json(
-            $asset->load([
-                'company',
-                'category',
-                'assetCode',
-                'employee',
-                'histories.employee',
-            ])
+            $asset->load(['company', 'category', 'assetCode', 'employee', 'histories.employee'])
         );
     }
 

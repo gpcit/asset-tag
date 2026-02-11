@@ -138,83 +138,102 @@ class AssetController extends Controller
      * UPDATE ASSET
      */
     public function update(Request $request, AssetInventory $asset)
-    {
-        $data = $request->validate([
-            'person_in_charge_id' => 'nullable|exists:employees,id',
-            'department'          => 'nullable|string|max:255',
-            'date_deployed'       => 'nullable|date',
-            'date_returned'       => 'nullable|date',
-            'is_active'           => 'sometimes|boolean', // ADMIN ONLY
-            'company_id'          => 'sometimes|exists:companies,id',
-            'category_id'         => 'sometimes|exists:categories,id',
-            'cost'                => 'nullable|numeric|min:0',
-            'supplier'            => 'nullable|string|max:255',
-            'model_number'        => 'nullable|string|max:255',
-            'specs'               => 'nullable|string',
-            'asset_info'          => 'nullable|string',
-            'invoice_date'        => 'nullable|date',
-            'invoice_number'      => 'nullable|string|max:255',
-            'remarks'             => 'nullable|string',
-        ]);
+{
+    $data = $request->validate([
+        'person_in_charge_id' => 'nullable|exists:employees,id',
+        'department'          => 'nullable|string|max:255',
+        'date_deployed'       => 'nullable|date',
+        'date_returned'       => 'nullable|date',
+        'is_active'           => 'sometimes|boolean',
+        'company_id'          => 'sometimes|exists:companies,id',
+        'category_id'         => 'sometimes|exists:categories,id',
+        'cost'                => 'nullable|numeric|min:0',
+        'supplier'            => 'nullable|string|max:255',
+        'model_number'        => 'nullable|string|max:255',
+        'specs'               => 'nullable|string',
+        'asset_info'          => 'nullable|string',
+        'invoice_date'        => 'nullable|date',
+        'invoice_number'      => 'nullable|string|max:255',
+        'remarks'             => 'nullable|string',
+    ]);
 
-        $oldData = $asset->only(array_keys($data));
+    $oldData = $asset->only(array_keys($data));
 
-        /**
-         * CASE 1: RETURN ASSET (NO is_active CHANGE)
-         */
-        if (!empty($data['date_returned'])) {
+    /**
+     * CASE 1: RETURN ASSET (clear employee)
+     */
+    if (!empty($data['date_returned'])) {
 
-            if ($asset->person_in_charge_id) {
-                DB::table('asset_histories')->insert([
-                    'asset_id'      => $asset->id,
-                    'employee_id'   => $asset->person_in_charge_id,
-                    'department'    => $asset->department,
-                    'date_deployed' => $asset->date_deployed,
-                    'date_returned' => $data['date_returned'],
-                    'created_at'    => now(),
-                    'updated_at'    => now(),
-                ]);
-            }
-
-            $data['person_in_charge_id'] = null;
-            $data['person_in_charge'] = null;
-            $data['department'] = null;
-            $data['date_deployed'] = null;
-        }
-
-        /**
-         * CASE 2: ASSIGN ASSET (NO is_active CHANGE)
-         */
-        if (!empty($data['person_in_charge_id'])) {
-            $employee = Employee::find($data['person_in_charge_id']);
-
-            $data['person_in_charge'] = $employee?->name;
-            $data['department'] = $employee?->department;
-            $data['date_returned'] = null;
-            $data['date_deployed'] = $data['date_deployed'] ?? now()->format('Y-m-d');
-        }
-
-        $asset->update($data);
-
-        $changes = $asset->getChanges();
-
-        if (!empty($changes)) {
-            ActivityLog::create([
-                'user_id'   => auth()->id() ?? 1,
-                'user_name' => auth()->user()?->name ?? 'System',
-                'user_role' => auth()->user()?->role ?? 'admin',
-                'action'    => 'update',
-                'module'    => 'asset',
-                'record_id' => $asset->id,
-                'old_data'  => array_intersect_key($oldData, $changes),
-                'new_data'  => $changes,
+        if ($asset->person_in_charge_id) {
+            DB::table('asset_histories')->insert([
+                'asset_id'      => $asset->id,
+                'employee_id'   => $asset->person_in_charge_id,
+                'department'    => $asset->department,
+                'date_deployed' => $asset->date_deployed,
+                'date_returned' => $data['date_returned'],
+                'remarks'       => $data['remarks'] ?? $asset->remarks, // ✅ Save remarks to history
+                'created_at'    => now(),
+                'updated_at'    => now(),
             ]);
         }
 
-        return response()->json(
-            $asset->load(['company', 'category', 'assetCode', 'employee', 'histories.employee'])
-        );
+        $data['person_in_charge_id'] = null;
+        $data['person_in_charge'] = null;
+        $data['department'] = null;
+        $data['date_deployed'] = null;
+        $data['remarks'] = null; // ✅ Clear remarks
     }
+
+    /**
+     * CASE 2: ASSIGN TO NEW EMPLOYEE (employee changed)
+     */
+    if (!empty($data['person_in_charge_id'])) {
+        
+        // ✅ If employee is CHANGING (not just being assigned for first time)
+        if ($asset->person_in_charge_id && $asset->person_in_charge_id != $data['person_in_charge_id']) {
+            // Archive old assignment to history
+            DB::table('asset_histories')->insert([
+                'asset_id'      => $asset->id,
+                'employee_id'   => $asset->person_in_charge_id,
+                'department'    => $asset->department,
+                'date_deployed' => $asset->date_deployed,
+                'date_returned' => now()->format('Y-m-d'), // Auto-return old assignment
+                'remarks'       => $asset->remarks, // ✅ Save old remarks to history
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ]);
+        }
+
+        $employee = Employee::find($data['person_in_charge_id']);
+
+        $data['person_in_charge'] = $employee?->name;
+        $data['department'] = $employee?->department;
+        $data['date_returned'] = null;
+        $data['date_deployed'] = $data['date_deployed'] ?? now()->format('Y-m-d');
+        $data['remarks'] = $data['remarks'] ?? null; // ✅ Clear/reset remarks for new assignment
+    }
+
+    $asset->update($data);
+
+    $changes = $asset->getChanges();
+
+    if (!empty($changes)) {
+        ActivityLog::create([
+            'user_id'   => auth()->id() ?? 1,
+            'user_name' => auth()->user()?->name ?? 'System',
+            'user_role' => auth()->user()?->role ?? 'admin',
+            'action'    => 'update',
+            'module'    => 'asset',
+            'record_id' => $asset->id,
+            'old_data'  => array_intersect_key($oldData, $changes),
+            'new_data'  => $changes,
+        ]);
+    }
+
+    return response()->json(
+        $asset->load(['company', 'category', 'assetCode', 'employee', 'histories.employee'])
+    );
+}
 
     /**
      * ASSIGN UNIQUE CODE

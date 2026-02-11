@@ -28,6 +28,7 @@ class AssetInventory extends Model
         'date_deployed',
         'date_returned',
         'is_active',
+        'remarks'
     ];
 
     protected $casts = [

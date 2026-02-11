@@ -440,25 +440,27 @@ const itemsPerPage = ref(10)
 const filteredAssets = computed<Asset[]>(() => {
   const query = searchQuery.value.trim().toLowerCase()
 
-  return userStore.assets.filter((asset: Asset) => {
-    if (statusFilter.value === 'active' && !asset.is_active) return false
-    if (statusFilter.value === 'inactive' && asset.is_active) return false
-    if (selectedCategory.value !== '' && asset.category_id !== selectedCategory.value) return false
-    if (selectedCompany.value !== '' && asset.company_id !== selectedCompany.value) return false
+  return userStore.assets
+    .filter((asset: Asset) => {
+      if (statusFilter.value === 'active' && !asset.is_active) return false
+      if (statusFilter.value === 'inactive' && asset.is_active) return false
+      if (selectedCategory.value !== '' && asset.category_id !== selectedCategory.value) return false
+      if (selectedCompany.value !== '' && asset.company_id !== selectedCompany.value) return false
 
-    if (query) {
-      return (
-        (asset.company?.name ?? '').toLowerCase().includes(query) ||
-        (asset.asset_info ?? '').toLowerCase().includes(query) ||
-        (asset.employee?.name ?? '').toLowerCase().includes(query) ||
-        ((asset as any).person_in_charge ?? '').toLowerCase().includes(query) || // ← Add this
-        (asset.category?.name ?? '').toLowerCase().includes(query) ||
-        (asset.specs ?? '').toLowerCase().includes(query) 
-      )
-    }
+      if (query) {
+        return (
+          (asset.company?.name ?? '').toLowerCase().includes(query) ||
+          (asset.asset_info ?? '').toLowerCase().includes(query) ||
+          (asset.employee?.name ?? '').toLowerCase().includes(query) ||
+          ((asset as any).person_in_charge ?? '').toLowerCase().includes(query) ||
+          (asset.category?.name ?? '').toLowerCase().includes(query) ||
+          (asset.specs ?? '').toLowerCase().includes(query) 
+        )
+      }
 
-    return true
-  })
+      return true
+    })
+    .sort((a, b) => b.id - a.id) // Sort descending by ID (newest first)
 })
 
 const paginatedAssets = computed(() => {
@@ -470,8 +472,10 @@ const totalPages = computed(() =>
   Math.ceil(filteredAssets.value.length / itemsPerPage.value)
 )
 
-watch([selectedCategory, selectedCompany, searchQuery], () => {
+// Watch filters and refresh data
+watch([selectedCategory, selectedCompany, searchQuery, statusFilter], async () => {
   currentPage.value = 1
+  await userStore.fetchAssets()
 })
 
 /* ------------------
@@ -606,7 +610,7 @@ const deleteAsset = async (asset: Asset) => {
  Excel Export
 ------------------ */
 const allFields = [
-  { key: 'person_in_charge', label: 'Person In-Charge' }, // change this to the employee not person in charge
+  { key: 'person_in_charge', label: 'Person In-Charge' }, 
   { key: 'company_id', label: 'Company' },
   { key: 'category_id', label: 'Category' },
   { key: 'invoice_number', label: 'Invoice Number' },
@@ -714,6 +718,27 @@ const exportExcel = async () => {
   saveAs(blob, 'assets_export.xlsx')
   showExportModal.value = false
 }
+
+/* ------------------
+ Computed: Combined History (includes current assignment)
+------------------ */
+const combinedHistory = computed(() => {
+  if (!selectedAsset.value) return []
+  
+  const histories = selectedAsset.value.histories || []
+  const currentAssignment = selectedAsset.value.employee ? {
+    id: 'current',
+    employee: selectedAsset.value.employee,
+    employee_id: selectedAsset.value.person_in_charge_id,
+    department: selectedAsset.value.department,
+    date_deployed: selectedAsset.value.date_deployed,
+    date_returned: selectedAsset.value.date_returned,
+    remarks: selectedAsset.value.remarks,
+    isCurrent: true
+  } : null
+  
+  return currentAssignment ? [currentAssignment, ...histories] : histories
+})
 
 /* ------------------
  Init
@@ -946,7 +971,7 @@ initData()
 
       <!-- Header -->
       <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-bold">Asset Details & Assignment</h2>
+        <h2 class="text-lg font-bold">Asset Details & Assignment History</h2>
         <button @click="showHistoryModal = false" class="text-gray-600 hover:text-gray-900 text-2xl">&times;</button>
       </div>
 
@@ -1026,17 +1051,7 @@ initData()
 
       <hr class="my-4">
 
-      <!-- Current Owner -->
-      <h3 class="font-semibold mb-2">Current Assignment</h3>
-      <div class="grid grid-cols-3 gap-4 text-sm mb-4 bg-gray-50 p-3 rounded">
-        <p><b>Employee:</b> {{ selectedAsset?.employee?.name || 'Not Assigned' }}</p>
-        <p><b>Department:</b> {{ selectedAsset?.department || '—' }}</p>
-        <p><b>Date Deployed:</b> {{ selectedAsset?.date_deployed || '—' }}</p>
-      </div>
-
-      <hr class="my-4">
-
-      <!-- Assignment History -->
+      <!-- Assignment History (includes current assignment) -->
       <h3 class="font-semibold mb-2">Assignment History</h3>
       <div class="overflow-x-auto">
         <table class="w-full text-sm border border-gray-300">
@@ -1051,14 +1066,17 @@ initData()
             </tr>
           </thead>
           <tbody>
-            <tr v-for="h in selectedAsset?.histories" :key="h.id" class="hover:bg-gray-50">
-              <td class="p-2 border">{{ h.employee?.name || '—' }}</td>
+            <tr v-for="h in combinedHistory" :key="h.id" class="hover:bg-gray-50" :class="{ 'bg-emerald-50 font-semibold': h.isCurrent }">
+              <td class="p-2 border">
+                {{ h.employee?.name || '—' }}
+                <span v-if="h.isCurrent" class="ml-2 text-xs bg-emerald-600 text-white px-2 py-0.5 rounded">Current</span>
+              </td>
               <td class="p-2 border">{{ h.department || '—' }}</td>
               <td class="p-2 border">{{ h.date_deployed || '—' }}</td>
               <td class="p-2 border">{{ h.date_returned || '—' }}</td>
               <td class="p-2 border">{{ h.remarks || '—' }}</td>
               <td v-if="user.role === 'admin'" class="p-2 border text-center">
-                <div class="flex gap-1 justify-center">
+                <div v-if="!h.isCurrent" class="flex gap-1 justify-center">
                   <button 
                     @click="openEditHistoryModal(h)"
                     class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium"
@@ -1074,11 +1092,12 @@ initData()
                     🗑️
                   </button>
                 </div>
+                <span v-else class="text-gray-400 text-xs">—</span>
               </td>
             </tr>
-            <tr v-if="!selectedAsset?.histories || selectedAsset.histories.length === 0">
+            <tr v-if="combinedHistory.length === 0">
               <td :colspan="user.role === 'admin' ? 6 : 5" class="p-2 text-center text-gray-500">
-                No previous assignments
+                No assignment history
               </td>
             </tr>
           </tbody>

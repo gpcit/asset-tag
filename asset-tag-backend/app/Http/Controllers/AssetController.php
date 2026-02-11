@@ -8,7 +8,7 @@ use App\Models\AssetCode;
 use App\Models\ActivityLog;
 use App\Models\Employee;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-
+use Illuminate\Support\Facades\DB;
 class AssetController extends Controller
 {
     /**
@@ -104,28 +104,26 @@ class AssetController extends Controller
     {
         $data = $request->validate([
             'person_in_charge_id' => 'nullable|exists:employees,id',
-            'company_id' => 'required|exists:companies,id',
-            'category_id' => 'required|exists:categories,id',
-            'cost' => 'nullable|numeric|min:0',
-            'supplier' => 'nullable|string|max:255',
-            'model_number' => 'nullable|string|max:255',
-            'specs' => 'nullable|string',
-            'asset_info' => 'nullable|string',
-            'invoice_date' => 'nullable|date',
-            'invoice_number' => 'nullable|string|max:255',
-            'date_deployed' => 'nullable|date',
-            'date_returned' => 'nullable|date',
-            'remarks' => 'nullable|string',
-            'is_active' => 'nullable|boolean',
+            'company_id'          => 'required|exists:companies,id',
+            'category_id'         => 'required|exists:categories,id',
+            'cost'                => 'nullable|numeric|min:0',
+            'supplier'            => 'nullable|string|max:255',
+            'model_number'        => 'nullable|string|max:255',
+            'specs'               => 'nullable|string',
+            'asset_info'          => 'nullable|string',
+            'invoice_date'        => 'nullable|date',
+            'invoice_number'      => 'nullable|string|max:255',
+            'date_deployed'       => 'nullable|date',
+            'date_returned'       => 'nullable|date',
+            'remarks'             => 'nullable|string',
+            'is_active'           => 'nullable|boolean', // ADMIN CONTROL
         ]);
 
-        // ✅ ADD: copy employee data
         if (!empty($data['person_in_charge_id'])) {
             $employee = Employee::find($data['person_in_charge_id']);
             $data['person_in_charge'] = $employee?->name;
             $data['department'] = $employee?->department;
             $data['date_deployed'] = now()->format('Y-m-d');
-            $data['is_active'] = true;
         }
 
         $asset = AssetInventory::create($data);
@@ -146,7 +144,7 @@ class AssetController extends Controller
             'department'          => 'nullable|string|max:255',
             'date_deployed'       => 'nullable|date',
             'date_returned'       => 'nullable|date',
-            'is_active'           => 'sometimes|boolean',
+            'is_active'           => 'sometimes|boolean', // ADMIN ONLY
             'company_id'          => 'sometimes|exists:companies,id',
             'category_id'         => 'sometimes|exists:categories,id',
             'cost'                => 'nullable|numeric|min:0',
@@ -162,11 +160,12 @@ class AssetController extends Controller
         $oldData = $asset->only(array_keys($data));
 
         /**
-         * CASE 1: RETURN ASSET
+         * CASE 1: RETURN ASSET (NO is_active CHANGE)
          */
         if (!empty($data['date_returned'])) {
+
             if ($asset->person_in_charge_id) {
-                \DB::table('asset_histories')->insert([
+                DB::table('asset_histories')->insert([
                     'asset_id'      => $asset->id,
                     'employee_id'   => $asset->person_in_charge_id,
                     'department'    => $asset->department,
@@ -178,23 +177,21 @@ class AssetController extends Controller
             }
 
             $data['person_in_charge_id'] = null;
-            $data['person_in_charge'] = null; // ✅ ADDED
+            $data['person_in_charge'] = null;
             $data['department'] = null;
             $data['date_deployed'] = null;
-            $data['is_active'] = false;
         }
 
         /**
-         * CASE 2: ASSIGN ASSET
+         * CASE 2: ASSIGN ASSET (NO is_active CHANGE)
          */
         if (!empty($data['person_in_charge_id'])) {
             $employee = Employee::find($data['person_in_charge_id']);
 
-            $data['person_in_charge'] = $employee?->name; // ✅ ADDED
+            $data['person_in_charge'] = $employee?->name;
             $data['department'] = $employee?->department;
             $data['date_returned'] = null;
             $data['date_deployed'] = $data['date_deployed'] ?? now()->format('Y-m-d');
-            $data['is_active'] = true;
         }
 
         $asset->update($data);

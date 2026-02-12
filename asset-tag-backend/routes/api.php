@@ -13,9 +13,14 @@ use Illuminate\Support\Facades\Route;
 // =====================================================
 // PUBLIC ROUTES - Only things that don't need tracking
 // =====================================================
-Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);
 
+Route::middleware('auth:api')->group(function () {
+    Route::post('/refresh', [AuthController::class, 'refresh']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
+});
 // Public asset lookup (for barcode scanners, public displays, etc.)
 Route::get('/asset_list_all', [AssetController::class, 'assetListAll']);
 Route::get('/assets/{unique_code}/download-tag', [AssetController::class, 'downloadTag']);

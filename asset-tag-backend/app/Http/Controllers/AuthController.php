@@ -168,4 +168,21 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'Role updated', 'user' => $user]);
     }
+
+    public function refresh()
+    {
+        try {
+            $newToken = auth()->refresh(true, true);
+
+            return response()->json([
+                'token' => $newToken
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Token cannot be refreshed'
+            ], 401);
+        }
+    }
+
 }

@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { initAutoLogout, clearAutoLogout } from '@/services/autoLogout'
+import { initIdleLogout, clearIdleLogout } from '@/services/api' // ✅ correct functions
 
 onMounted(() => {
-  console.log("App mounted, initializing auto-logout");
-  initAutoLogout();
+  console.log("App mounted, initializing idle logout");
+  initIdleLogout()
 });
 
 onUnmounted(() => {
-  console.log("App unmounting, clearing auto-logout");
-  clearAutoLogout();
+  console.log("App unmounting, clearing idle logout");
+  clearIdleLogout()
 });
 </script>
 

@@ -13,7 +13,7 @@ interface JwtPayload { exp: number; [key: string]: any }
 // Idle logout timer
 // -------------------------
 let idleTimer: number | null = null
-const idleTimeoutMinutes = 5 // idle timer 
+const idleTimeoutMinutes = 15 // idle timer 
 let listenersAttached = false // <-- prevent multiple listeners
 
 // -------------------------

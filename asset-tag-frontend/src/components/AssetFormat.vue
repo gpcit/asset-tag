@@ -92,7 +92,7 @@ const generateTag = async (asset: Asset) => {
 const downloadImage = async () => {
   if (!captureRef.value || !taggingAsset.value || !taggingAsset.value.uniqueCode) return
   try {
-    const canvas = await html2canvas(captureRef.value, { scale: 2, backgroundColor: '#ffffff' })
+    const canvas = await html2canvas(captureRef.value, { scale: 4, backgroundColor: '#ffffff' })
 
     const targetWidthCm = 6.4
     const targetHeightCm = 3.8
@@ -302,7 +302,7 @@ defineExpose({ openTagModal, openReprintModal })
 }
 .qr-label {
   color: white;
-  font-size: 16px;
+  font-size: 28px;
   font-weight: 600;
   text-align: center;
 }
@@ -338,13 +338,13 @@ defineExpose({ openTagModal, openReprintModal })
   box-shadow: inset 0 -20px 30px rgba(0, 0, 0, 0.2);
 }
 .company-name {
-  font-size: 20px;
+  font-size: 28px;
   font-weight: 700;
   color: #1a5c4a;
   margin-bottom: 5px;
 }
 .company-code {
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 600;
   color: #2d6b54;
 }

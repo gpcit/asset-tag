@@ -92,7 +92,7 @@ const generateTag = async (asset: Asset) => {
 const downloadImage = async () => {
   if (!captureRef.value || !taggingAsset.value || !taggingAsset.value.uniqueCode) return
   try {
-    const canvas = await html2canvas(captureRef.value, { scale: 4, backgroundColor: '#ffffff' })
+    const canvas = await html2canvas(captureRef.value, { scale: 2, backgroundColor: '#ffffff' })
 
     const targetWidthCm = 6.4
     const targetHeightCm = 3.8

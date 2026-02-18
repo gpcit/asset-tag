@@ -16,7 +16,7 @@ interface BatchTag {
 const batchTags = ref<BatchTag[]>([])
 const loading = ref(false)
 
-//  FETCH TAGS
+// FETCH TAGS
 const fetchBatchTags = async () => {
   loading.value = true
   try {
@@ -30,7 +30,7 @@ const fetchBatchTags = async () => {
   }
 }
 
-//  SOFT DELETE
+// SOFT DELETE
 const softDeleteTag = async (tag: BatchTag) => {
   const result = await Swal.fire({
     title: 'Delete tag?',
@@ -52,7 +52,7 @@ const softDeleteTag = async (tag: BatchTag) => {
   }
 }
 
-//  PRINT + MARK AS PRINTED
+// PRINT + MARK AS PRINTED
 const printAll = async () => {
   const win = window.open('', '_blank')
   if (!win) return
@@ -62,19 +62,24 @@ const printAll = async () => {
       <head>
         <title>Batch Tags</title>
         <style>
-          @page { size: A4; margin: 5mm; }
+          @page {
+            size: A4;
+            margin: 0;
+          }
 
           body {
-            margin: 0;
-            display: flex;
-            flex-wrap: wrap;
+            margin: 5mm;
+            display: grid;
+            grid-template-columns: repeat(3, 64mm);
+            grid-auto-rows: 38mm;
             gap: 4mm;
+            justify-content: center;
           }
 
           .tag {
-            width: 241px;  /* 64mm */
-            height: 143px; /* 38mm */
-            outline: 1px dashed black;
+            width: 64mm;
+            height: 38mm;
+            border: 0.5mm dashed black;
             box-sizing: border-box;
             display: flex;
             align-items: center;
@@ -106,7 +111,7 @@ const printAll = async () => {
   win.print()
   win.close()
 
-  // Mark each tag as printed after printing
+  // Mark each tag as printed
   try {
     await Promise.all(
       batchTags.value.map(tag =>
@@ -119,7 +124,7 @@ const printAll = async () => {
   }
 }
 
-// Delete all that has a printed status
+// DELETE ALL PRINTED
 const confirmDeleteAllPrinted = () => {
   Swal.fire({
     title: 'Delete all printed tags?',
@@ -139,10 +144,7 @@ const confirmDeleteAllPrinted = () => {
 const deleteAllPrinted = async () => {
   try {
     await api.delete('/batch-tags/delete-printed')
-
-    // Update frontend list immediately
     batchTags.value = batchTags.value.filter(tag => tag.print_status !== 'printed')
-
     Swal.fire('Deleted', 'All printed tags were deleted', 'success')
   } catch (err) {
     console.error(err)
@@ -171,30 +173,20 @@ onMounted(fetchBatchTags)
 
     <div v-else class="grid grid-cols-3 gap-4">
       <div v-for="tag in batchTags" :key="tag.id" class="tag-card">
-
         <img :src="tag.url" class="tag-image" />
-
         <div class="font-semibold mt-2">
           {{ tag.unique_code }}
         </div>
 
-        <!-- STATUS -->
-        <span
-          class="status-badge"
-          :class="tag.print_status"
-        >
+        <span class="status-badge" :class="tag.print_status">
           {{ tag.print_status === 'printed' ? 'Printed' : 'Not Printed' }}
         </span>
 
-        <button
-          class="delete-btn mt-3"
-          @click="softDeleteTag(tag)"
-        >
+        <button class="delete-btn mt-3" @click="softDeleteTag(tag)">
           🗑 Delete
         </button>
       </div>
     </div>
-    
   </div>
 </template>
 
@@ -225,17 +217,6 @@ onMounted(fetchBatchTags)
 
 .delete-all-btn:hover {
   background: #b91c1c;
-}
-
-.tag {
-  width: 64mm;           
-  height: 38mm;         
-  border: 1px dashed black; 
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  page-break-inside: avoid; /* No splitting tags across pages */
 }
 
 .tag-card {

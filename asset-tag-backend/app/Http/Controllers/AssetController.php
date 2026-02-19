@@ -129,8 +129,11 @@ class AssetController extends Controller
 
         $asset = AssetInventory::create($data);
 
+        // ✅ Auto-generate control number on creation
+        $this->generateControlNumberForAsset($asset);
+
         return response()->json(
-            $asset->load(['company', 'category', 'employee']),
+            $asset->load(['company', 'category', 'employee', 'assetCode']),
             201
         );
     }
@@ -235,58 +238,62 @@ class AssetController extends Controller
     }
 
     /**
-     * GENERATE CONTROL NUMBER
-     * Format: {COMPANY_CODE}-{CAT}-{SEQUENCE}
-     * Example: GPCCCP-LAP-00006
+     * PRIVATE: GENERATE CONTROL NUMBER FOR AN ASSET
+     * Shared by store() and generateControlNumber()
+     */
+    private function generateControlNumberForAsset(AssetInventory $asset): AssetCode
+    {
+        $asset->loadMissing(['company', 'category']);
+
+        // Return existing if already generated
+        $existing = AssetCode::where('asset_id', $asset->id)->first();
+        if ($existing) return $existing;
+
+        // Company code prefix (e.g. GPCCCP)
+        $companyCode = strtoupper(trim($asset->company?->code ?? 'ASSET'));
+
+        // Category abbreviation — first 3 letters uppercased (e.g. Laptop → LAP)
+        $categoryCode = strtoupper(
+            substr(preg_replace('/[^a-zA-Z]/', '', $asset->category?->name ?? 'GEN'), 0, 3)
+        );
+
+        // Count assets in same company + category for sequence
+        $sequence = AssetInventory::where('company_id', $asset->company_id)
+            ->where('category_id', $asset->category_id)
+            ->where(function ($query) use ($asset) {
+                $query->where('created_at', '<', $asset->created_at)
+                    ->orWhere(function ($q) use ($asset) {
+                        $q->where('created_at', $asset->created_at)
+                          ->where('id', '<=', $asset->id);
+                    });
+            })
+            ->count();
+
+        // Final format: GPCCCP-LAP00006
+        $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+
+        // Collision safety net
+        if (AssetCode::where('control_number', $controlNumber)->exists()) {
+            $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
+        }
+
+        return AssetCode::create([
+            'asset_id'       => $asset->id,
+            'control_number' => $controlNumber,
+        ]);
+    }
+
+    /**
+     * GENERATE CONTROL NUMBER (API endpoint — kept for manual/reprint use)
      */
     public function generateControlNumber($assetId)
     {
         return DB::transaction(function () use ($assetId) {
-
             $asset = AssetInventory::with(['company', 'category'])
                 ->lockForUpdate()
                 ->findOrFail($assetId);
 
-            // If already generated, return existing
-            $existing = AssetCode::where('asset_id', $asset->id)->first();
-            if ($existing) {
-                return response()->json([
-                    'unique_code' => $existing->control_number,
-                    'asset_id'    => $existing->asset_id,
-                ]);
-            }
-
-            // ✅ Company code prefix (e.g. GPCCCP)
-            $companyCode = strtoupper(trim($asset->company?->code ?? 'ASSET'));
-
-            // ✅ Category abbreviation — first 3 letters uppercased (e.g. Laptop → LAP)
-            $categoryName = $asset->company?->name ?? 'GEN';
-            $categoryCode = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $asset->category?->name ?? 'GEN'), 0, 3));
-
-            // ✅ Count assets in same company + category for sequence
-            $sequence = AssetInventory::where('company_id', $asset->company_id)
-                ->where('category_id', $asset->category_id)
-                ->where(function ($query) use ($asset) {
-                    $query->where('created_at', '<', $asset->created_at)
-                        ->orWhere(function ($q) use ($asset) {
-                            $q->where('created_at', $asset->created_at)
-                              ->where('id', '<=', $asset->id);
-                        });
-                })
-                ->count();
-
-            // ✅ Final format: GPCCCP-LAP-00006
-            $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
-
-            // Collision safety net
-            if (AssetCode::where('control_number', $controlNumber)->exists()) {
-                $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
-            }
-
-            $assetCode = AssetCode::create([
-                'asset_id'       => $asset->id,
-                'control_number' => $controlNumber,
-            ]);
+            $assetCode = $this->generateControlNumberForAsset($asset);
 
             return response()->json([
                 'unique_code' => $assetCode->control_number,

@@ -277,7 +277,7 @@ watch(
     }
 
     /**
-     * 🔴 EMPLOYEE CLEARED → ASSET RETURNED
+     * EMPLOYEE CLEARED → ASSET RETURNED
      */
     if (!newId) {
       employeeSearch.value = ''
@@ -287,7 +287,7 @@ watch(
     }
 
     /**
-     * 🟢 EMPLOYEE SELECTED → ASSET ASSIGNED
+     * EMPLOYEE SELECTED → ASSET ASSIGNED
      */
     const emp = employees.value.find(e => e.id === Number(newId))
     if (!emp) return
@@ -460,7 +460,7 @@ const filteredAssets = computed<Asset[]>(() => {
 
       return true
     })
-    .sort((a, b) => b.id - a.id) // Sort descending by ID (newest first)
+    .sort((a, b) => b.id - a.id)
 })
 
 const paginatedAssets = computed(() => {
@@ -571,16 +571,31 @@ const submitForm = async () => {
     const payload = mapFormToPayload(form.value)
 
     if (isEditing.value && editingAssetId.value) {
+      // ── EDIT ──
       await api.put(`/assets/${editingAssetId.value}`, payload)
       Swal.fire('Updated!', 'Asset updated successfully.', 'success')
+      showCreateModal.value = false
+      form.value = emptyForm()
+      await userStore.fetchAssets()
     } else {
-      await api.post('/assets', payload)
-      Swal.fire('Created!', 'Asset created successfully.', 'success')
+      // ── CREATE ──
+      const res = await api.post('/assets', payload)
+      const newAsset = res.data   // backend already includes assetCode
+
+      showCreateModal.value = false
+      form.value = emptyForm()
+      await userStore.fetchAssets()
+
+      // ✅ Show success message then open tag modal
+      await Swal.fire({
+        icon: 'success',
+        title: 'Asset Created!',
+        html: 'Asset has been successfully created.<br>A tag has been generated for this asset.',
+        confirmButtonText: 'Close',
+        confirmButtonColor: '#059669',
+      })
     }
 
-    showCreateModal.value = false
-    form.value = emptyForm()
-    await userStore.fetchAssets()
   } catch (err: any) {
     Swal.fire('Error', err.response?.data?.message || 'Operation failed', 'error')
   }
@@ -720,7 +735,7 @@ const exportExcel = async () => {
 }
 
 /* ------------------
- Computed: Combined History (includes current assignment)
+ Computed: Combined History
 ------------------ */
 const combinedHistory = computed(() => {
   if (!selectedAsset.value) return []
@@ -775,7 +790,7 @@ initData()
 
       <!-- Search Bar -->
       <div class="mb-4">
-        <input v-model="searchQuery" type="text" placeholder="Search by  Employee, Company, Category, Specs or Asset Info" class="w-full border rounded px-3 py-2 text-sm"/>
+        <input v-model="searchQuery" type="text" placeholder="Search by Employee, Company, Category, Specs or Asset Info" class="w-full border rounded px-3 py-2 text-sm"/>
       </div>
 
       <!-- Category -->
@@ -787,14 +802,14 @@ initData()
         </select>
       </div>
 
-      <!-- Status  -->
-       <div class="mb-4">
-          <label class="block text-sm font-medium mb-1">Status</label>
-          <select v-model="statusFilter" class="w-full border rounded px-3 py-2 text-sm">
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+      <!-- Status -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">Status</label>
+        <select v-model="statusFilter" class="w-full border rounded px-3 py-2 text-sm">
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
       </div>
 
       <!-- Company -->
@@ -840,10 +855,10 @@ initData()
             <td class="px-3 py-1 break-words uppercase">{{ asset.specs || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.asset_info }}</td>
             <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
-              <button  @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️</button>
+              <button @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️</button>
               <button v-if="user.role === 'admin'" @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️</button>
-              <button @click="tagModalRef?.openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️</button>
-              <button v-if="user.role === 'admin'" @click="viewHistory(asset)" class="bg-green-600 hover:bg-green-900 text-white px-2 py-1 rounded text-sm font-medium ms-2" title="View">🔍</button>
+              <button v-if="user.role === 'admin'" @click="viewHistory(asset)" class="bg-green-600 hover:bg-green-900 text-white px-2 py-1 rounded text-sm font-medium me-3" title="View">🔍</button>
+              <!-- <button @click="tagModalRef?.openTagModal(asset)" class="bg-yellow-600 hover:bg-yellow-900 text-white px-2 py-1 rounded text-sm font-medium" title="Tag">🏷️</button> -->
             </td>
           </tr>
         </tbody>
@@ -939,9 +954,9 @@ initData()
           <p v-if="errors.specs" class="text-xs text-red-500 mt-1">{{ errors.specs }}</p>
         </div>
 
-        <!-- Asset info  -->
+        <!-- Asset Info -->
         <div class="col-span-1 md:col-span-2">
-          <label class="block text-sm font-medium mb-1">Asset info</label>
+          <label class="block text-sm font-medium mb-1">Asset Info</label>
           <textarea v-model="form.asset_info" rows="3" class="w-full border px-2 py-1 rounded text-sm resize-y"></textarea>
         </div>
 
@@ -960,7 +975,9 @@ initData()
           class="px-4 py-1 rounded text-sm font-semibold transition">
           {{ form.is_active ? 'Active' : 'Inactive' }}
         </button>
-        <button @click="submitForm" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">Submit</button>
+        <button @click="submitForm" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">
+          {{ isEditing ? 'Update' : 'Create & Generate Tag' }}
+        </button>
       </div>
     </div>
   </div>
@@ -1025,7 +1042,7 @@ initData()
         <!-- Remarks Field -->
         <div class="mb-4">
           <label class="block text-sm font-medium mb-1">Remarks</label>
-          <textarea v-model="historyForm.remarks" rows="3" placeholder="Add any notes or remarks about this assignment..."class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
+          <textarea v-model="historyForm.remarks" rows="3" placeholder="Add any notes or remarks about this assignment..." class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
         </div>
 
         <!-- Update Button -->
@@ -1051,7 +1068,7 @@ initData()
 
       <hr class="my-4">
 
-      <!-- Assignment History (includes current assignment) -->
+      <!-- Assignment History -->
       <h3 class="font-semibold mb-2">Assignment History</h3>
       <div class="overflow-x-auto">
         <table class="w-full text-sm border border-gray-300">

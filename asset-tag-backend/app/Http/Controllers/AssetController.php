@@ -276,7 +276,7 @@ class AssetController extends Controller
                 ->count();
 
             // ✅ Final format: GPCCCP-LAP-00006
-            $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+            $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
 
             // Collision safety net
             if (AssetCode::where('control_number', $controlNumber)->exists()) {

@@ -17,7 +17,7 @@ interface Asset {
   person_in_charge?: string
   department?: string
   specs?: string
-  asset_code?: { control_number: string } // ✅ fixed: was unique_code
+  asset_code?: { control_number: string }
   invoice_date?: string
 }
 
@@ -36,11 +36,11 @@ const emit = defineEmits<{
    OPEN NEW TAG
 ========================= */
 const openTagModal = async (asset: Asset) => {
-  if (asset.asset_code?.control_number) { // ✅ fixed
+  if (asset.asset_code?.control_number) {
     Swal.fire({
       icon: 'info',
       title: 'Tag Already Exists',
-      text: `This asset already has a tag: ${asset.asset_code.control_number}. Please use Reprint.`, // ✅ fixed
+      text: `This asset already has a tag: ${asset.asset_code.control_number}. Please use Reprint.`,
       confirmButtonColor: '#2d6b54'
     })
     return
@@ -54,7 +54,7 @@ const openTagModal = async (asset: Asset) => {
    OPEN REPRINT
 ========================= */
 const openReprintModal = async (asset: Asset) => {
-  if (!asset.asset_code?.control_number) { // ✅ fixed
+  if (!asset.asset_code?.control_number) {
     Swal.fire({
       icon: 'warning',
       title: 'No Tag Found',
@@ -78,13 +78,9 @@ const generateTag = async (asset: Asset) => {
     let assetCode: string
 
     if (asset.asset_code?.control_number) {
-      // ✅ Already has a code — use it directly (reprint)
-      assetCode = asset.asset_code.control_number // ✅ fixed
+      assetCode = asset.asset_code.control_number
     } else {
-      // ✅ Generate new code from backend
       const response = await api.post(`/assets/${asset.id}/generate-code`)
-
-      // Backend returns { unique_code: '...', asset_id: ... }
       assetCode = response.data?.unique_code
 
       if (!assetCode) {
@@ -155,7 +151,7 @@ const downloadImage = async () => {
     resizedCanvas.toBlob(async (blob) => {
       if (!blob) return
 
-      const controlNumber = taggingAsset.value!.uniqueCode! // internal ref stays same
+      const controlNumber = taggingAsset.value!.uniqueCode!
 
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -266,7 +262,7 @@ defineExpose({ openTagModal, openReprintModal })
               </div>
 
               <div class="company-code">
-                - ({{ taggingAsset?.company?.code ?? 'CCP' }})
+                ({{ taggingAsset?.company?.code ?? 'CCP' }})
               </div>
             </div>
           </div>
@@ -386,6 +382,7 @@ defineExpose({ openTagModal, openReprintModal })
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  text-align: center; /* ✅ added */
 }
 
 .company-logo {
@@ -408,15 +405,18 @@ defineExpose({ openTagModal, openReprintModal })
 }
 
 .company-name {
-  font-size: 28px;
+  font-size: 26px; /* ✅ slightly reduced to fit long names */
   font-weight: 700;
   color: #1a5c4a;
+  text-align: center; /* ✅ added */
+  word-break: break-word; /* ✅ prevents overflow on long names */
 }
 
 .company-code {
-  font-size: 28px;
+  font-size: 22px; /* ✅ slightly reduced */
   font-weight: 600;
   color: #2d6b54;
+  text-align: center; /* ✅ added */
 }
 
 .print-btn {

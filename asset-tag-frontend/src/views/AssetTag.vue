@@ -874,7 +874,7 @@ initData()
   </div>
 
   <!-- Create/Edit Modal -->
-  <div v-if="showCreateModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50" @click.self="showCreateModal = false">
+  <div v-if="showCreateModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-bold mb-3">{{ isEditing ? 'Edit Asset' : 'Create New Asset' }}</h2>
 

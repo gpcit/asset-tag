@@ -21,7 +21,7 @@ interface Asset {
   date_deployed?: string
   category?: { name: string }
   company?: { name: string; code: string; logo?: string }
-  asset_code?: { unique_code: string }
+  asset_code?: { control_number: string } // ✅ fixed
 }
 
 const searchCode = ref('')
@@ -47,8 +47,8 @@ const searchUniqueCode = async (code?: string) => {
     foundAsset.value = {
       ...res.data.asset,
       invoice_date: res.data.asset.invoice_date,
-      specs: res.data.asset.specs|| '',
-      asset_code: { unique_code: res.data.unique_code },
+      specs: res.data.asset.specs || '',
+      asset_code: { control_number: res.data.unique_code }, // ✅ fixed
       category: res.data.asset.category || { name: '' },
       company: res.data.asset.company || { name: '', code: '', logo: '' },
     }
@@ -58,15 +58,12 @@ const searchUniqueCode = async (code?: string) => {
     Swal.fire({
       icon: 'error',
       title: 'Not Found',
-      text: 'No asset found with this unique code.'
+      text: 'No asset found with this control number.'
     })
   } finally {
     loading.value = false
   }
 }
-
-
-
 
 const fetchSuggestions = async () => {
   const query = searchCode.value.trim()
@@ -98,16 +95,18 @@ const reprintTag = () => {
 const fetchAllAssetsWithUniqueCode = async () => {
   try {
     const res = await api.get('/assets', { params: { has_unique_code: true } })
-    
-    allAssets.value = res.data.map(asset => ({
+
+    allAssets.value = res.data.map((asset: any) => ({
       ...asset,
       invoice_date: asset.invoice_date || '',
       specs: asset.specs || '',
-      asset_code: asset.asset_code || { unique_code: '' },
+      asset_code: asset.asset_code
+        ? { control_number: asset.asset_code.control_number || '' } // ✅ fixed
+        : { control_number: '' },
       category: asset.category || { name: '' },
       company: asset.company || { name: '', code: '', logo: '' },
     }))
-    
+
     console.log('Fetched assets:', allAssets.value.length)
   } catch (err) {
     console.error('Fetch Error:', err)
@@ -116,21 +115,21 @@ const fetchAllAssetsWithUniqueCode = async () => {
 
 const exportToExcel = async () => {
   if (!allAssets.value.length) {
-    Swal.fire({ icon: 'info', title: 'No data', text: 'No assets with unique codes found.' })
+    Swal.fire({ icon: 'info', title: 'No data', text: 'No assets with control numbers found.' })
     return
   }
-  
+
   const formatValue = (val: any) => {
     if (val === null || val === undefined) return '-'
     const strVal = String(val)
-    return strVal.split(',').map(s => s.trim()).join('\n')
+    return strVal.split(',').map((s: string) => s.trim()).join('\n')
   }
-  
+
   const worksheetData = allAssets.value.map(a => {
-    const codeValue = a.asset_code?.unique_code || '-'
-    
+    const codeValue = a.asset_code?.control_number || '-' // ✅ fixed
+
     return {
-      'Unique Code': codeValue,
+      'Control Number': codeValue,           // ✅ fixed label
       'Company': a.company?.name || '-',
       'Person In-charge': a.person_in_charge || '-',
       'Department': a.department || '-',
@@ -145,19 +144,19 @@ const exportToExcel = async () => {
       'Remarks': formatValue(a.remarks),
     }
   })
-  
+
   const headers = Object.keys(worksheetData[0] || {})
   const lastColumn = String.fromCharCode(65 + headers.length - 1)
-  
+
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('Assets')
-  
+
   worksheet.mergeCells('A1', `${lastColumn}1`)
   worksheet.getCell('A1').value = 'Asset Management System (TAGGING)'
   worksheet.getCell('A1').font = { size: 40, bold: true }
   worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' }
   worksheet.getRow(1).height = 50
-  
+
   const extractionDate = new Date().toLocaleString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -168,48 +167,47 @@ const exportToExcel = async () => {
   worksheet.getCell('A2').font = { size: 11, italic: true }
   worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' }
   worksheet.getRow(2).height = 20
-  
+
   worksheet.addRow([])
-  
   worksheet.addRow(headers)
-  
+
   const headerRow = worksheet.getRow(4)
   headerRow.font = { bold: true }
   headerRow.alignment = { vertical: 'top', wrapText: true }
-  
+
   worksheetData.forEach(row => {
     const rowValues = headers.map(header => (row as any)[header])
     worksheet.addRow(rowValues)
   })
-  
+
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber >= 4) {
       row.eachCell((cell) => {
-        cell.alignment = { 
-          vertical: 'top', 
-          wrapText: true 
+        cell.alignment = {
+          vertical: 'top',
+          wrapText: true
         }
       })
     }
   })
-  
+
   worksheet.columns.forEach((column) => {
     if (!column) return
-    
+
     let maxLength = 0
     column.eachCell?.({ includeEmpty: true }, (cell) => {
       const cellValue = cell.value ? cell.value.toString() : ''
-      const cellLength = cellValue.split('\n').reduce((max, line) => 
+      const cellLength = cellValue.split('\n').reduce((max: number, line: string) =>
         Math.max(max, line.length), 0
       )
       maxLength = Math.max(maxLength, cellLength)
     })
     column.width = Math.min(Math.max(maxLength + 2, 10), 50)
   })
-  
+
   const buffer = await workbook.xlsx.writeBuffer()
-  const blob = new Blob([buffer], { 
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   })
   saveAs(blob, 'Asset_Tagging.xlsx')
 }
@@ -227,7 +225,8 @@ onMounted(() => {
       <h2 class="text-2xl font-bold">Asset Tagging</h2>
       <button
         @click="exportToExcel"
-        class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 shadow flex items-center gap-2">📥 Export All to Excel
+        class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 shadow flex items-center gap-2">
+        📥 Export All to Excel
       </button>
     </div>
 
@@ -238,7 +237,7 @@ onMounted(() => {
           @input="fetchSuggestions"
           @keyup.enter="() => searchUniqueCode()"
           type="text"
-          placeholder="Enter Unique Code..."
+          placeholder="Enter Control Number..."
           class="w-full border px-4 py-2 rounded-lg shadow-sm focus:ring focus:ring-emerald-200 outline-none"
         />
         <button
@@ -265,7 +264,7 @@ onMounted(() => {
       <div class="flex justify-between items-start border-b pb-4 mb-4">
         <div>
           <h3 class="text-xl font-bold text-gray-800">
-            {{ foundAsset.asset_code?.unique_code }}
+            {{ foundAsset.asset_code?.control_number }} <!-- ✅ fixed -->
           </h3>
           <p class="text-emerald-600 font-medium">{{ foundAsset.company?.name || 'No Company' }}</p>
         </div>

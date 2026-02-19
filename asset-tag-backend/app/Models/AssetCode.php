@@ -9,7 +9,7 @@ class AssetCode extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['asset_id', 'unique_code'];
+    protected $fillable = ['asset_id', 'control_number'];
 
     public $timestamps = false;
 

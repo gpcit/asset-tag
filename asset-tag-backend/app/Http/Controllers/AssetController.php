@@ -9,6 +9,7 @@ use App\Models\ActivityLog;
 use App\Models\Employee;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\DB;
+
 class AssetController extends Controller
 {
     /**
@@ -44,24 +45,24 @@ class AssetController extends Controller
             ->map(function ($items) {
                 $companyName = $items->first()->company?->name ?? 'Unknown';
                 return [
-                    'company' => $companyName,
+                    'company'     => $companyName,
                     'asset_count' => $items->count(),
-                    'total_cost' => $items->sum('cost') ?? 0,
-                    'categories' => $items->pluck('category.name')->unique()->implode(', '),
+                    'total_cost'  => $items->sum('cost') ?? 0,
+                    'categories'  => $items->pluck('category.name')->unique()->implode(', '),
                 ];
             })
             ->values();
 
         return response()->json([
-            'totalAssets' => $totalAssets,
-            'totalCost' => $totalCost,
-            'byCompany' => $byCompany,
+            'totalAssets'       => $totalAssets,
+            'totalCost'         => $totalCost,
+            'byCompany'         => $byCompany,
             'assets_with_codes' => AssetCode::count(),
         ]);
     }
 
     /**
-     * SEARCH BY UNIQUE CODE
+     * SEARCH BY CONTROL NUMBER
      */
     public function getAssetByUniqueCode(Request $request)
     {
@@ -74,7 +75,7 @@ class AssetController extends Controller
             'asset.category',
             'asset.employee',
         ])
-        ->where('unique_code', $request->unique_code)
+        ->where('control_number', $request->unique_code)
         ->first();
 
         if (!$assetCode || !$assetCode->asset) {
@@ -82,25 +83,25 @@ class AssetController extends Controller
         }
 
         return response()->json([
-            'unique_code' => $assetCode->unique_code,
-            'asset' => $assetCode->asset,
+            'unique_code' => $assetCode->control_number,
+            'asset'       => $assetCode->asset,
         ]);
     }
 
     /**
-     * UNIQUE CODE AUTOCOMPLETE
+     * CONTROL NUMBER AUTOCOMPLETE
      */
     public function suggestUniqueCodes(Request $request)
     {
-        return AssetCode::where('unique_code', 'like', '%' . $request->query('q', '') . '%')
+        return AssetCode::where('control_number', 'like', '%' . $request->query('q', '') . '%')
             ->limit(10)
-            ->pluck('unique_code');
+            ->pluck('control_number');
     }
 
     /**
      * STORE ASSET
      */
-     public function store(Request $request)
+    public function store(Request $request)
     {
         $data = $request->validate([
             'person_in_charge_id' => 'nullable|exists:employees,id',
@@ -116,14 +117,14 @@ class AssetController extends Controller
             'date_deployed'       => 'nullable|date',
             'date_returned'       => 'nullable|date',
             'remarks'             => 'nullable|string',
-            'is_active'           => 'nullable|boolean', // ADMIN CONTROL
+            'is_active'           => 'nullable|boolean',
         ]);
 
         if (!empty($data['person_in_charge_id'])) {
             $employee = Employee::find($data['person_in_charge_id']);
             $data['person_in_charge'] = $employee?->name;
-            $data['department'] = $employee?->department;
-            $data['date_deployed'] = now()->format('Y-m-d');
+            $data['department']       = $employee?->department;
+            $data['date_deployed']    = now()->format('Y-m-d');
         }
 
         $asset = AssetInventory::create($data);
@@ -138,139 +139,180 @@ class AssetController extends Controller
      * UPDATE ASSET
      */
     public function update(Request $request, AssetInventory $asset)
-{
-    $data = $request->validate([
-        'person_in_charge_id' => 'nullable|exists:employees,id',
-        'department'          => 'nullable|string|max:255',
-        'date_deployed'       => 'nullable|date',
-        'date_returned'       => 'nullable|date',
-        'is_active'           => 'sometimes|boolean',
-        'company_id'          => 'sometimes|exists:companies,id',
-        'category_id'         => 'sometimes|exists:categories,id',
-        'cost'                => 'nullable|numeric|min:0',
-        'supplier'            => 'nullable|string|max:255',
-        'model_number'        => 'nullable|string|max:255',
-        'specs'               => 'nullable|string',
-        'asset_info'          => 'nullable|string',
-        'invoice_date'        => 'nullable|date',
-        'invoice_number'      => 'nullable|string|max:255',
-        'remarks'             => 'nullable|string',
-    ]);
-
-    $oldData = $asset->only(array_keys($data));
-
-    /**
-     * CASE 1: RETURN ASSET (clear employee)
-     */
-    if (!empty($data['date_returned'])) {
-
-        if ($asset->person_in_charge_id) {
-            DB::table('asset_histories')->insert([
-                'asset_id'      => $asset->id,
-                'employee_id'   => $asset->person_in_charge_id,
-                'department'    => $asset->department,
-                'date_deployed' => $asset->date_deployed,
-                'date_returned' => $data['date_returned'],
-                'remarks'       => $data['remarks'] ?? $asset->remarks, // ✅ Save remarks to history
-                'created_at'    => now(),
-                'updated_at'    => now(),
-            ]);
-        }
-
-        $data['person_in_charge_id'] = null;
-        $data['person_in_charge'] = null;
-        $data['department'] = null;
-        $data['date_deployed'] = null;
-        $data['remarks'] = null; // ✅ Clear remarks
-    }
-
-    /**
-     * CASE 2: ASSIGN TO NEW EMPLOYEE (employee changed)
-     */
-    if (!empty($data['person_in_charge_id'])) {
-        
-        // ✅ If employee is CHANGING (not just being assigned for first time)
-        if ($asset->person_in_charge_id && $asset->person_in_charge_id != $data['person_in_charge_id']) {
-            // Archive old assignment to history
-            DB::table('asset_histories')->insert([
-                'asset_id'      => $asset->id,
-                'employee_id'   => $asset->person_in_charge_id,
-                'department'    => $asset->department,
-                'date_deployed' => $asset->date_deployed,
-                'date_returned' => now()->format('Y-m-d'), // Auto-return old assignment
-                'remarks'       => $asset->remarks, // ✅ Save old remarks to history
-                'created_at'    => now(),
-                'updated_at'    => now(),
-            ]);
-        }
-
-        $employee = Employee::find($data['person_in_charge_id']);
-
-        $data['person_in_charge'] = $employee?->name;
-        $data['department'] = $employee?->department;
-        $data['date_returned'] = null;
-        $data['date_deployed'] = $data['date_deployed'] ?? now()->format('Y-m-d');
-        $data['remarks'] = $data['remarks'] ?? null; // ✅ Clear/reset remarks for new assignment
-    }
-
-    $asset->update($data);
-
-    $changes = $asset->getChanges();
-
-    if (!empty($changes)) {
-        ActivityLog::create([
-            'user_id'   => auth()->id() ?? 1,
-            'user_name' => auth()->user()?->name ?? 'System',
-            'user_role' => auth()->user()?->role ?? 'admin',
-            'action'    => 'update',
-            'module'    => 'asset',
-            'record_id' => $asset->id,
-            'old_data'  => array_intersect_key($oldData, $changes),
-            'new_data'  => $changes,
-        ]);
-    }
-
-    return response()->json(
-        $asset->load(['company', 'category', 'assetCode', 'employee', 'histories.employee'])
-    );
-}
-
-    /**
-     * ASSIGN UNIQUE CODE
-     */
-    public function saveUniqueCode(Request $request)
     {
         $data = $request->validate([
-            'asset_id' => 'required|exists:asset_inventories,id',
-            'unique_code' => 'required|string|unique:asset_codes,unique_code',
+            'person_in_charge_id' => 'nullable|exists:employees,id',
+            'department'          => 'nullable|string|max:255',
+            'date_deployed'       => 'nullable|date',
+            'date_returned'       => 'nullable|date',
+            'is_active'           => 'sometimes|boolean',
+            'company_id'          => 'sometimes|exists:companies,id',
+            'category_id'         => 'sometimes|exists:categories,id',
+            'cost'                => 'nullable|numeric|min:0',
+            'supplier'            => 'nullable|string|max:255',
+            'model_number'        => 'nullable|string|max:255',
+            'specs'               => 'nullable|string',
+            'asset_info'          => 'nullable|string',
+            'invoice_date'        => 'nullable|date',
+            'invoice_number'      => 'nullable|string|max:255',
+            'remarks'             => 'nullable|string',
         ]);
 
-        $assetCode = AssetCode::create($data);
+        $oldData = $asset->only(array_keys($data));
 
-        return response()->json([
-            'message' => 'Unique code saved',
-            'data' => $assetCode,
-        ], 201);
+        /**
+         * CASE 1: RETURN ASSET (clear employee)
+         */
+        if (!empty($data['date_returned'])) {
+
+            if ($asset->person_in_charge_id) {
+                DB::table('asset_histories')->insert([
+                    'asset_id'      => $asset->id,
+                    'employee_id'   => $asset->person_in_charge_id,
+                    'department'    => $asset->department,
+                    'date_deployed' => $asset->date_deployed,
+                    'date_returned' => $data['date_returned'],
+                    'remarks'       => $data['remarks'] ?? $asset->remarks,
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ]);
+            }
+
+            $data['person_in_charge_id'] = null;
+            $data['person_in_charge']    = null;
+            $data['department']          = null;
+            $data['date_deployed']       = null;
+            $data['remarks']             = null;
+        }
+
+        /**
+         * CASE 2: ASSIGN TO NEW EMPLOYEE (employee changed)
+         */
+        if (!empty($data['person_in_charge_id'])) {
+
+            if ($asset->person_in_charge_id && $asset->person_in_charge_id != $data['person_in_charge_id']) {
+                DB::table('asset_histories')->insert([
+                    'asset_id'      => $asset->id,
+                    'employee_id'   => $asset->person_in_charge_id,
+                    'department'    => $asset->department,
+                    'date_deployed' => $asset->date_deployed,
+                    'date_returned' => now()->format('Y-m-d'),
+                    'remarks'       => $asset->remarks,
+                    'created_at'    => now(),
+                    'updated_at'    => now(),
+                ]);
+            }
+
+            $employee = Employee::find($data['person_in_charge_id']);
+
+            $data['person_in_charge'] = $employee?->name;
+            $data['department']       = $employee?->department;
+            $data['date_returned']    = null;
+            $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
+            $data['remarks']          = $data['remarks'] ?? null;
+        }
+
+        $asset->update($data);
+
+        $changes = $asset->getChanges();
+
+        if (!empty($changes)) {
+            ActivityLog::create([
+                'user_id'   => auth()->id() ?? 1,
+                'user_name' => auth()->user()?->name ?? 'System',
+                'user_role' => auth()->user()?->role ?? 'admin',
+                'action'    => 'update',
+                'module'    => 'asset',
+                'record_id' => $asset->id,
+                'old_data'  => array_intersect_key($oldData, $changes),
+                'new_data'  => $changes,
+            ]);
+        }
+
+        return response()->json(
+            $asset->load(['company', 'category', 'assetCode', 'employee', 'histories.employee'])
+        );
+    }
+
+    /**
+     * GENERATE CONTROL NUMBER
+     * Format: {COMPANY_CODE}-{CAT}-{SEQUENCE}
+     * Example: GPCCCP-LAP-00006
+     */
+    public function generateControlNumber($assetId)
+    {
+        return DB::transaction(function () use ($assetId) {
+
+            $asset = AssetInventory::with(['company', 'category'])
+                ->lockForUpdate()
+                ->findOrFail($assetId);
+
+            // If already generated, return existing
+            $existing = AssetCode::where('asset_id', $asset->id)->first();
+            if ($existing) {
+                return response()->json([
+                    'unique_code' => $existing->control_number,
+                    'asset_id'    => $existing->asset_id,
+                ]);
+            }
+
+            // ✅ Company code prefix (e.g. GPCCCP)
+            $companyCode = strtoupper(trim($asset->company?->code ?? 'ASSET'));
+
+            // ✅ Category abbreviation — first 3 letters uppercased (e.g. Laptop → LAP)
+            $categoryName = $asset->company?->name ?? 'GEN';
+            $categoryCode = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $asset->category?->name ?? 'GEN'), 0, 3));
+
+            // ✅ Count assets in same company + category for sequence
+            $sequence = AssetInventory::where('company_id', $asset->company_id)
+                ->where('category_id', $asset->category_id)
+                ->where(function ($query) use ($asset) {
+                    $query->where('created_at', '<', $asset->created_at)
+                        ->orWhere(function ($q) use ($asset) {
+                            $q->where('created_at', $asset->created_at)
+                              ->where('id', '<=', $asset->id);
+                        });
+                })
+                ->count();
+
+            // ✅ Final format: GPCCCP-LAP-00006
+            $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+
+            // Collision safety net
+            if (AssetCode::where('control_number', $controlNumber)->exists()) {
+                $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
+            }
+
+            $assetCode = AssetCode::create([
+                'asset_id'       => $asset->id,
+                'control_number' => $controlNumber,
+            ]);
+
+            return response()->json([
+                'unique_code' => $assetCode->control_number,
+                'asset_id'    => $assetCode->asset_id,
+            ]);
+        });
     }
 
     /**
      * DOWNLOAD QR TAG
      */
-    public function downloadTag($unique_code)
+    public function downloadTag($control_number)
     {
         $assetCode = AssetCode::with([
             'asset.company',
             'asset.category',
-        ])->where('unique_code', $unique_code)->firstOrFail();
+        ])->where('control_number', $control_number)->firstOrFail();
 
         $asset = $assetCode->asset;
 
         $qrText =
-            "Unique Code: {$assetCode->unique_code}\n" .
-            "Company: " . ($asset->company?->name ?? 'N/A') . "\n" .
-            "Category: " . ($asset->category?->name ?? 'N/A') . "\n" .
-            "Invoice Date: " . ($asset->invoice_date ?? 'N/A') . "\n" .
-            "Specs: " . ($asset->specs ?? 'N/A');
+            "Control Number: {$assetCode->control_number}\n" .
+            "Company: "      . ($asset->company?->name  ?? 'N/A') . "\n" .
+            "Category: "     . ($asset->category?->name ?? 'N/A') . "\n" .
+            "Invoice Date: " . ($asset->invoice_date    ?? 'N/A') . "\n" .
+            "Specs: "        . ($asset->specs            ?? 'N/A');
 
         return response(
             QrCode::format('png')->size(300)->margin(2)->generate($qrText)
@@ -323,21 +365,22 @@ class AssetController extends Controller
         return response()->json($assets);
     }
 
+    /**
+     * DELETE ASSET HISTORY
+     */
     public function destroyHistory($id)
     {
         try {
-            $history = \DB::table('asset_histories')->where('id', $id)->first();
-            
+            $history = DB::table('asset_histories')->where('id', $id)->first();
+
             if (!$history) {
                 return response()->json(['message' => 'History entry not found'], 404);
             }
 
-            // Check if already soft deleted
             if ($history->deleted_at !== null) {
                 return response()->json(['message' => 'History entry already deleted'], 400);
             }
-            
-            // Log the deletion
+
             ActivityLog::create([
                 'user_id'   => auth()->id() ?? 1,
                 'user_name' => auth()->user()?->name ?? 'System',
@@ -349,30 +392,29 @@ class AssetController extends Controller
                 'new_data'  => ['deleted_at' => now()],
             ]);
 
-            // Soft delete by setting deleted_at timestamp
-            \DB::table('asset_histories')
+            DB::table('asset_histories')
                 ->where('id', $id)
                 ->update(['deleted_at' => now()]);
 
             return response()->json(['message' => 'History entry deleted successfully'], 200);
+
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to delete history entry: ' . $e->getMessage()], 500);
         }
     }
 
     /**
- * UPDATE ASSET HISTORY ENTRY
- */
+     * UPDATE ASSET HISTORY ENTRY
+     */
     public function updateHistory(Request $request, $id)
     {
         try {
-            $history = \DB::table('asset_histories')->where('id', $id)->first();
-            
+            $history = DB::table('asset_histories')->where('id', $id)->first();
+
             if (!$history) {
                 return response()->json(['message' => 'History entry not found'], 404);
             }
 
-            // Check if soft deleted
             if ($history->deleted_at !== null) {
                 return response()->json(['message' => 'Cannot edit deleted history entry'], 400);
             }
@@ -385,25 +427,21 @@ class AssetController extends Controller
                 'remarks'       => 'nullable|string',
             ]);
 
-            // Capture old data for logging
             $oldData = (array) $history;
 
-            // Update the history entry
-            \DB::table('asset_histories')
+            DB::table('asset_histories')
                 ->where('id', $id)
                 ->update([
-                    'employee_id'   => $data['employee_id'] ?? $history->employee_id,
-                    'department'    => $data['department'] ?? $history->department,
+                    'employee_id'   => $data['employee_id']   ?? $history->employee_id,
+                    'department'    => $data['department']    ?? $history->department,
                     'date_deployed' => $data['date_deployed'] ?? $history->date_deployed,
                     'date_returned' => $data['date_returned'] ?? $history->date_returned,
-                    'remarks'       => $data['remarks'] ?? $history->remarks,
+                    'remarks'       => $data['remarks']       ?? $history->remarks,
                     'updated_at'    => now(),
                 ]);
 
-            // Get updated history
-            $updatedHistory = \DB::table('asset_histories')->where('id', $id)->first();
+            $updatedHistory = DB::table('asset_histories')->where('id', $id)->first();
 
-            // Log the update
             ActivityLog::create([
                 'user_id'   => auth()->id() ?? 1,
                 'user_name' => auth()->user()?->name ?? 'System',
@@ -415,25 +453,24 @@ class AssetController extends Controller
                 'new_data'  => (array) $updatedHistory,
             ]);
 
-            // Load employee data
             if ($updatedHistory->employee_id) {
-                $updatedHistory->employee = \DB::table('employees')
+                $updatedHistory->employee = DB::table('employees')
                     ->where('id', $updatedHistory->employee_id)
                     ->first();
             }
 
             return response()->json([
                 'message' => 'History entry updated successfully',
-                'data' => $updatedHistory
+                'data'    => $updatedHistory,
             ], 200);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Failed to update history entry: ' . $e->getMessage()], 500);
         }
     }
-    
 }

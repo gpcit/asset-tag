@@ -45,7 +45,7 @@ const fetchDepartments = async () => {
 // Filtered list for search
 const filteredDeparments = computed(() => {
     const q = search.value.toLowerCase()
-    return departments.value.filter(d => d.name.toLowerCase(q))
+    return departments.value.filter(d => d.name.toLowerCase().includes(q))
 })
 
 // Add department

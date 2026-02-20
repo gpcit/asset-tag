@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\DepartmentContoller;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\ServerAccountController;
 use App\Http\Controllers\BatchTagController;
@@ -58,7 +59,7 @@ Route::middleware('auth:api')->group(function () {
 
         // Categories
         Route::apiResource('categories', CategoryController::class);
-
+        Route::apiResource('departments', DepartmentContoller::class);
         // Companies
         Route::apiResource('companies', CompanyController::class);
 

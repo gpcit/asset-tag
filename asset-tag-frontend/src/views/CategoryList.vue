@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import api from '@/services/api'
 import Swal from 'sweetalert2'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
 

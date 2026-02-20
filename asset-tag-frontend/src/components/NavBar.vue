@@ -78,6 +78,7 @@ const navigationGroups: NavGroup[] = [
     items: [
       { name: 'Companies', to: '/company_list', roles: ['admin'] },
       { name: 'Employees', to: '/employee', roles: ['admin'] },
+      { name: 'Department', to: '/department_list', roles: ['admin'] },
     ]
   },
   {

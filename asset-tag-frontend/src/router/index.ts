@@ -13,6 +13,7 @@ import AssetTagPrint from '@/views/AssetTagPrint.vue'
 import EmployeePage from '@/views/EmployeePage.vue'
 import ActivityLog from '@/views/ActivityLog.vue'
 import CompanyList from '@/views/CompanyList.vue'
+import DepartmentPage from '@/views/DepartmentPage.vue'
 const routes = [
   {
     path: '/',
@@ -99,6 +100,12 @@ const routes = [
     name: 'CompanyList',
     meta: { requiresAuth: true },
     component: CompanyList
+  },
+  {
+    path: '/department_list',
+    name: 'Department',
+    meta: { requiresAuth: true },
+    component: DepartmentPage
   }
 ]
 

@@ -98,7 +98,7 @@ const generateTag = async (asset: Asset) => {
     const qrText =
       `Control Number: ${assetCode}\n` +
       `Company: ${asset.company?.name ?? 'No Company'}\n` +
-      `Department: ${asset.department?.name ?? 'No Department'}\n` +
+      `Department: ${asset.department ?? 'No Department'}\n` +
       `Category: ${asset.category?.name ?? 'No Category'}\n` +
       `Invoice Date: ${asset.invoice_date ?? 'N/A'}\n` +
       `Specification: ${asset.specs ?? 'N/A'}`

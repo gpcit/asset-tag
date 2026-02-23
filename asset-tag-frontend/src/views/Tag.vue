@@ -10,7 +10,10 @@ import AssetFormat from '@/components/AssetFormat.vue'
 interface Asset {
   id: number
   person_in_charge: string
-  department: string
+  department?: {
+    id: number
+    name: string
+  }
   invoice_number?: string
   invoice_date?: string
   cost?: number
@@ -192,7 +195,7 @@ const exportToExcel = async () => {
       'Control Number': codeValue,
       'Company': a.company?.name || '-',
       'Person In-charge': a.person_in_charge || '-',
-      'Department': a.department || '-',
+      'Department': a.department?.name || '-',
       'Category': a.category?.name || '-',
       'Model Number': a.model_number || '-',
       'Supplier': a.supplier || '-',

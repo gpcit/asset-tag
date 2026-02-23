@@ -15,7 +15,10 @@ interface Asset {
     logo?: string
   }
   person_in_charge?: string
-  department?: string
+  department?: {
+    id: number
+    name: string
+  }
   specs?: string
   asset_code?: { control_number: string }
   invoice_date?: string
@@ -95,7 +98,7 @@ const generateTag = async (asset: Asset) => {
     const qrText =
       `Control Number: ${assetCode}\n` +
       `Company: ${asset.company?.name ?? 'No Company'}\n` +
-      `Department: ${asset.department ?? 'No Department'}\n` +
+      `Department: ${asset.department?.name ?? 'No Department'}\n` +
       `Category: ${asset.category?.name ?? 'No Category'}\n` +
       `Invoice Date: ${asset.invoice_date ?? 'N/A'}\n` +
       `Specification: ${asset.specs ?? 'N/A'}`

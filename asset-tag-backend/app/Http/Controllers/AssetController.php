@@ -104,165 +104,168 @@ class AssetController extends Controller
      * STORE ASSET
      */
     public function store(Request $request)
-    {
-        $data = $request->validate([
-            'person_in_charge_id' => 'nullable|exists:employees,id',
-            'department_id'       => 'nullable|exists:departments,id',
-            'company_id'          => 'required|exists:companies,id',
-            'category_id'         => 'required|exists:categories,id',
-            'cost'                => 'nullable|numeric|min:0',
-            'supplier'            => 'nullable|string|max:255',
-            'model_number'        => 'nullable|string|max:255',
-            'specs'               => 'nullable|string',
-            'asset_info'          => 'nullable|string',
-            'invoice_date'        => 'nullable|date',
-            'invoice_number'      => 'nullable|string|max:255',
-            'date_deployed'       => 'nullable|date',
-            'date_returned'       => 'nullable|date',
-            'remarks'             => 'nullable|string',
-            'is_active'           => 'nullable|boolean',
-        ]);
+{
+    $data = $request->validate([
+        'person_in_charge_id' => 'nullable|exists:employees,id',
+        'department_id'       => 'nullable|exists:departments,id',
+        'company_id'          => 'required|exists:companies,id',
+        'category_id'         => 'required|exists:categories,id',
+        'cost'                => 'nullable|numeric|min:0',
+        'supplier'            => 'nullable|string|max:255',
+        'model_number'        => 'nullable|string|max:255',
+        'specs'               => 'nullable|string',
+        'asset_info'          => 'nullable|string',
+        'invoice_date'        => 'nullable|date',
+        'invoice_number'      => 'nullable|string|max:255',
+        'date_deployed'       => 'nullable|date',
+        'date_returned'       => 'nullable|date',
+        'remarks'             => 'nullable|string',
+        'is_active'           => 'nullable|boolean',
+    ]);
 
-        // ✅ If department_id is provided, also save the department name string
-        if (!empty($data['department_id'])) {
-            $dept = Department::find($data['department_id']);
-            $data['department'] = $dept?->name;
+    /**
+     * ✅ If employee is assigned
+     */
+    if (!empty($data['person_in_charge_id'])) {
+        $employee = Employee::find($data['person_in_charge_id']);
+
+        $data['person_in_charge'] = $employee?->name;
+        $data['date_deployed']    = now()->format('Y-m-d');
+
+        // If department is NOT manually selected, inherit from employee
+        if (empty($data['department_id'])) {
+            $data['department_id'] = $employee?->department_id;
         }
-
-        // ✅ If employee is assigned
-        if (!empty($data['person_in_charge_id'])) {
-            $employee = Employee::find($data['person_in_charge_id']);
-            $data['person_in_charge'] = $employee?->name;
-            $data['date_deployed']    = now()->format('Y-m-d');
-
-            // Only set department from employee if user didn't pick one manually
-            if (empty($data['department_id'])) {
-                $data['department_id'] = $employee?->department_id;
-                $data['department']    = $employee?->department;
-            }
-        }
-
-        $asset = AssetInventory::create($data);
-
-        $this->generateControlNumberForAsset($asset);
-
-        return response()->json(
-            $asset->load(['company', 'category', 'employee', 'assetCode', 'department']),
-            201
-        );
     }
+
+    /**
+     * Only department_id is stored
+     */
+
+    $asset = AssetInventory::create($data);
+
+    $this->generateControlNumberForAsset($asset);
+
+    return response()->json(
+        $asset->load(['company', 'category', 'employee', 'assetCode', 'department']),
+        201
+    );
+}
 
     /**
      * UPDATE ASSET
      */
     public function update(Request $request, AssetInventory $asset)
-    {
-        $data = $request->validate([
-            'person_in_charge_id' => 'nullable|exists:employees,id',
-            'department_id'       => 'nullable|exists:departments,id',
-            'date_deployed'       => 'nullable|date',
-            'date_returned'       => 'nullable|date',
-            'is_active'           => 'sometimes|boolean',
-            'company_id'          => 'sometimes|exists:companies,id',
-            'category_id'         => 'sometimes|exists:categories,id',
-            'cost'                => 'nullable|numeric|min:0',
-            'supplier'            => 'nullable|string|max:255',
-            'model_number'        => 'nullable|string|max:255',
-            'specs'               => 'nullable|string',
-            'asset_info'          => 'nullable|string',
-            'invoice_date'        => 'nullable|date',
-            'invoice_number'      => 'nullable|string|max:255',
-            'remarks'             => 'nullable|string',
-        ]);
+{
+    $data = $request->validate([
+        'person_in_charge_id' => 'nullable|exists:employees,id',
+        'department_id'       => 'nullable|exists:departments,id',
+        'date_deployed'       => 'nullable|date',
+        'date_returned'       => 'nullable|date',
+        'is_active'           => 'sometimes|boolean',
+        'company_id'          => 'sometimes|exists:companies,id',
+        'category_id'         => 'sometimes|exists:categories,id',
+        'cost'                => 'nullable|numeric|min:0',
+        'supplier'            => 'nullable|string|max:255',
+        'model_number'        => 'nullable|string|max:255',
+        'specs'               => 'nullable|string',
+        'asset_info'          => 'nullable|string',
+        'invoice_date'        => 'nullable|date',
+        'invoice_number'      => 'nullable|string|max:255',
+        'remarks'             => 'nullable|string',
+    ]);
 
-        // ✅ If department_id is provided, sync the department name string
-        if (!empty($data['department_id'])) {
-            $dept = Department::find($data['department_id']);
-            $data['department'] = $dept?->name;
-        }
+    $oldData = $asset->only(array_keys($data));
 
-        $oldData = $asset->only(array_keys($data));
+    /**
+     * CASE 1: RETURN ASSET
+     */
+    if (!empty($data['date_returned'])) {
 
-        /**
-         * CASE 1: RETURN ASSET (clear employee)
-         */
-        if (!empty($data['date_returned'])) {
-
-            if ($asset->person_in_charge_id) {
-                DB::table('asset_histories')->insert([
-                    'asset_id'      => $asset->id,
-                    'employee_id'   => $asset->person_in_charge_id,
-                    'department'    => $asset->department,
-                    'date_deployed' => $asset->date_deployed,
-                    'date_returned' => $data['date_returned'],
-                    'remarks'       => $data['remarks'] ?? $asset->remarks,
-                    'created_at'    => now(),
-                    'updated_at'    => now(),
-                ]);
-            }
-
-            // ✅ Clear both department fields on return
-            $data['person_in_charge_id'] = null;
-            $data['person_in_charge']    = null;
-            $data['department_id']       = null;
-            $data['department']          = null;
-            $data['date_deployed']       = null;
-            $data['remarks']             = null;
-        }
-
-        /**
-         * CASE 2: ASSIGN TO NEW EMPLOYEE (employee changed)
-         */
-        if (!empty($data['person_in_charge_id'])) {
-
-            if ($asset->person_in_charge_id && $asset->person_in_charge_id != $data['person_in_charge_id']) {
-                DB::table('asset_histories')->insert([
-                    'asset_id'      => $asset->id,
-                    'employee_id'   => $asset->person_in_charge_id,
-                    'department'    => $asset->department,
-                    'date_deployed' => $asset->date_deployed,
-                    'date_returned' => now()->format('Y-m-d'),
-                    'remarks'       => $asset->remarks,
-                    'created_at'    => now(),
-                    'updated_at'    => now(),
-                ]);
-            }
-
-            $employee = Employee::find($data['person_in_charge_id']);
-
-            $data['person_in_charge'] = $employee?->name;
-            $data['date_returned']    = null;
-            $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
-            $data['remarks']          = $data['remarks'] ?? null;
-
-            // ✅ Only set department from employee if user didn't pick one manually
-            if (empty($data['department_id'])) {
-                $data['department_id'] = $employee?->department_id;
-                $data['department']    = $employee?->department;
-            }
-        }
-
-        $asset->update($data);
-
-        $changes = $asset->getChanges();
-
-        if (!empty($changes)) {
-            ActivityLog::create([
-                'user_id'   => auth()->id() ?? 1,
-                'user_name' => auth()->user()?->name ?? 'System',
-                'user_role' => auth()->user()?->role ?? 'admin',
-                'action'    => 'update',
-                'module'    => 'asset',
-                'record_id' => $asset->id,
-                'old_data'  => array_intersect_key($oldData, $changes),
-                'new_data'  => $changes,
+        if ($asset->person_in_charge_id) {
+            DB::table('asset_histories')->insert([
+                'asset_id'      => $asset->id,
+                'employee_id'   => $asset->person_in_charge_id,
+                // ✅ store department NAME in history (correct behavior)
+                'department'    => $asset->department?->name,
+                'date_deployed' => $asset->date_deployed,
+                'date_returned' => $data['date_returned'],
+                'remarks'       => $data['remarks'] ?? $asset->remarks,
+                'created_at'    => now(),
+                'updated_at'    => now(),
             ]);
         }
 
-        return response()->json(
-            $asset->load(['company', 'category', 'assetCode', 'employee', 'department', 'histories.employee'])
-        );
+        $data['person_in_charge_id'] = null;
+        $data['person_in_charge']    = null;
+        $data['department_id']       = null;
+        $data['date_deployed']       = null;
+        $data['remarks']             = null;
     }
+
+    /**
+     * CASE 2: ASSIGN TO NEW EMPLOYEE
+     */
+    if (!empty($data['person_in_charge_id'])) {
+
+        if ($asset->person_in_charge_id && $asset->person_in_charge_id != $data['person_in_charge_id']) {
+            DB::table('asset_histories')->insert([
+                'asset_id'      => $asset->id,
+                'employee_id'   => $asset->person_in_charge_id,
+                'department'    => $asset->department?->name,
+                'date_deployed' => $asset->date_deployed,
+                'date_returned' => now()->format('Y-m-d'),
+                'remarks'       => $asset->remarks,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ]);
+        }
+
+        $employee = Employee::find($data['person_in_charge_id']);
+
+        $data['person_in_charge'] = $employee?->name;
+        $data['date_returned']    = null;
+        $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
+        $data['remarks']          = $data['remarks'] ?? null;
+
+        // ✅ If department not manually selected, inherit from employee
+        if (empty($data['department_id'])) {
+            $data['department_id'] = $employee?->department_id;
+        }
+    }
+
+    /**
+     * Only department_id is stored in asset table.
+     */
+
+    $asset->update($data);
+
+    $changes = $asset->getChanges();
+
+    if (!empty($changes)) {
+        ActivityLog::create([
+            'user_id'   => auth()->id() ?? 1,
+            'user_name' => auth()->user()?->name ?? 'System',
+            'user_role' => auth()->user()?->role ?? 'admin',
+            'action'    => 'update',
+            'module'    => 'asset',
+            'record_id' => $asset->id,
+            'old_data'  => array_intersect_key($oldData, $changes),
+            'new_data'  => $changes,
+        ]);
+    }
+
+    return response()->json(
+        $asset->load([
+            'company',
+            'category',
+            'assetCode',
+            'employee',
+            'department',
+            'histories.employee'
+        ])
+    );
+}
 
     /**
      * PRIVATE: GENERATE CONTROL NUMBER FOR AN ASSET

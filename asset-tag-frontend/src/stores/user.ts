@@ -4,12 +4,15 @@ import { ref } from 'vue'
 
 interface Category { id: number; name: string }
 interface Company { id: number; name: string }
-interface Employee { id: number; name: string; department: string }
+interface Department { id: number; name: string }   // ✅ added
+interface Employee { id: number; name: string; department_id?: number }  // ✅ updated
+
 interface Asset {
   id: number
   person_in_charge_id?: number
   person_in_charge?: string
   department?: string
+  department_id?: number   // ✅ added
   invoice_number?: string
   invoice_date?: string
   cost?: number
@@ -28,10 +31,11 @@ interface Asset {
 export const useUserStore = defineStore('user', () => {
   const user = ref<any>(null)
   const token = ref<string | null>(localStorage.getItem('token'))
-  
+
   const assets = ref<Asset[]>([])
   const companies = ref<Company[]>([])
   const categories = ref<Category[]>([])
+  const departments = ref<Department[]>([])   // ✅ added
   const employees = ref<Employee[]>([])
   const totalAssets = ref(0)
   const totalCost = ref(0)
@@ -50,7 +54,7 @@ export const useUserStore = defineStore('user', () => {
       const { data } = await api.get('/employees')
       const rawEmployees = data.data || data
       employees.value = (Array.isArray(rawEmployees) ? rawEmployees : [])
-        .filter(emp => emp && emp.id && emp.name)
+        .filter((emp: any) => emp && emp.id && emp.name)
     } catch (err) {
       console.error('Failed to fetch employees:', err)
       employees.value = []
@@ -97,6 +101,17 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // ✅ added
+  const fetchDepartments = async () => {
+    try {
+      const { data } = await api.get('/departments')
+      departments.value = Array.isArray(data) ? data : []
+    } catch (err) {
+      console.error('Failed to fetch departments:', err)
+      departments.value = []
+    }
+  }
+
   const fetchDashboard = async () => {
     try {
       const { data } = await api.get('/dashboard/summary')
@@ -113,13 +128,12 @@ export const useUserStore = defineStore('user', () => {
 
   // Initialize all data
   const initializeData = async () => {
+    await fetchEmployees() // fetch employees first so assets can be mapped to them
     await Promise.all([
-      fetchEmployees(), // fetch employees first
-    ])
-    await Promise.all([
-      fetchAssets(),     // then map assets to employees
+      fetchAssets(),
       fetchCompanies(),
       fetchCategories(),
+      fetchDepartments(),  // ✅ added
       fetchDashboard(),
     ])
   }
@@ -130,6 +144,7 @@ export const useUserStore = defineStore('user', () => {
     assets,
     companies,
     categories,
+    departments,    // ✅ exposed
     employees,
     totalAssets,
     totalCost,
@@ -138,6 +153,7 @@ export const useUserStore = defineStore('user', () => {
     fetchAssets,
     fetchCompanies,
     fetchCategories,
+    fetchDepartments,  // ✅ exposed
     fetchEmployees,
     fetchDashboard,
     initializeData,

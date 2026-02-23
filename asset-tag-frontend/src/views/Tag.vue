@@ -60,6 +60,7 @@ const searchUniqueCode = async (code?: string) => {
     foundAsset.value = {
       ...res.data.asset,
       invoice_date: res.data.asset.invoice_date,
+      department: res.data.asset.department,
       specs: res.data.asset.specs || '',
       asset_code: { control_number: res.data.unique_code },
       category: res.data.asset.category || { name: '' },
@@ -398,6 +399,7 @@ onMounted(() => {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+        <p><span class="text-gray-500">Department:</span> {{ foundAsset.department }}</p>
         <p><span class="text-gray-500">Invoice Date:</span> {{ foundAsset.invoice_date }}</p>
         <p><span class="text-gray-500">Specification:</span> {{ foundAsset.specs }}</p>
         <p><span class="text-gray-500">Category:</span> {{ foundAsset.category?.name || '-' }}</p>

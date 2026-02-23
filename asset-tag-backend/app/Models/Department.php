@@ -10,8 +10,13 @@ class Department extends Model
 
     protected $fillable = ['name'];
 
-    public function asset()
+    public function employees()
     {
-        return $this->hasMany(AssetInventory::class);
+        return $this->hasMany(Employee::class, 'department_id');
+    }
+
+    public function assets()
+    {
+        return $this->hasMany(AssetInventory::class, 'department_id');
     }
 }

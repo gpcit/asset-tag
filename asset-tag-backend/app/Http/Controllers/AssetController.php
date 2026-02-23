@@ -7,6 +7,7 @@ use App\Models\AssetInventory;
 use App\Models\AssetCode;
 use App\Models\ActivityLog;
 use App\Models\Employee;
+use App\Models\Department;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +23,7 @@ class AssetController extends Controller
             'category',
             'assetCode',
             'employee',
+            'department',
         ]);
 
         if ($request->boolean('has_unique_code')) {
@@ -37,7 +39,7 @@ class AssetController extends Controller
     public function summary()
     {
         $totalAssets = AssetInventory::count();
-        $totalCost = AssetInventory::sum('cost');
+        $totalCost   = AssetInventory::sum('cost');
 
         $byCompany = AssetInventory::with(['company', 'category'])
             ->get()
@@ -105,6 +107,7 @@ class AssetController extends Controller
     {
         $data = $request->validate([
             'person_in_charge_id' => 'nullable|exists:employees,id',
+            'department_id'       => 'nullable|exists:departments,id',
             'company_id'          => 'required|exists:companies,id',
             'category_id'         => 'required|exists:categories,id',
             'cost'                => 'nullable|numeric|min:0',
@@ -120,20 +123,31 @@ class AssetController extends Controller
             'is_active'           => 'nullable|boolean',
         ]);
 
+        // ✅ If department_id is provided, also save the department name string
+        if (!empty($data['department_id'])) {
+            $dept = Department::find($data['department_id']);
+            $data['department'] = $dept?->name;
+        }
+
+        // ✅ If employee is assigned
         if (!empty($data['person_in_charge_id'])) {
             $employee = Employee::find($data['person_in_charge_id']);
             $data['person_in_charge'] = $employee?->name;
-            $data['department']       = $employee?->department;
             $data['date_deployed']    = now()->format('Y-m-d');
+
+            // Only set department from employee if user didn't pick one manually
+            if (empty($data['department_id'])) {
+                $data['department_id'] = $employee?->department_id;
+                $data['department']    = $employee?->department;
+            }
         }
 
         $asset = AssetInventory::create($data);
 
-        // ✅ Auto-generate control number on creation
         $this->generateControlNumberForAsset($asset);
 
         return response()->json(
-            $asset->load(['company', 'category', 'employee', 'assetCode']),
+            $asset->load(['company', 'category', 'employee', 'assetCode', 'department']),
             201
         );
     }
@@ -145,7 +159,7 @@ class AssetController extends Controller
     {
         $data = $request->validate([
             'person_in_charge_id' => 'nullable|exists:employees,id',
-            'department'          => 'nullable|string|max:255',
+            'department_id'       => 'nullable|exists:departments,id',
             'date_deployed'       => 'nullable|date',
             'date_returned'       => 'nullable|date',
             'is_active'           => 'sometimes|boolean',
@@ -160,6 +174,12 @@ class AssetController extends Controller
             'invoice_number'      => 'nullable|string|max:255',
             'remarks'             => 'nullable|string',
         ]);
+
+        // ✅ If department_id is provided, sync the department name string
+        if (!empty($data['department_id'])) {
+            $dept = Department::find($data['department_id']);
+            $data['department'] = $dept?->name;
+        }
 
         $oldData = $asset->only(array_keys($data));
 
@@ -181,8 +201,10 @@ class AssetController extends Controller
                 ]);
             }
 
+            // ✅ Clear both department fields on return
             $data['person_in_charge_id'] = null;
             $data['person_in_charge']    = null;
+            $data['department_id']       = null;
             $data['department']          = null;
             $data['date_deployed']       = null;
             $data['remarks']             = null;
@@ -209,10 +231,15 @@ class AssetController extends Controller
             $employee = Employee::find($data['person_in_charge_id']);
 
             $data['person_in_charge'] = $employee?->name;
-            $data['department']       = $employee?->department;
             $data['date_returned']    = null;
             $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
             $data['remarks']          = $data['remarks'] ?? null;
+
+            // ✅ Only set department from employee if user didn't pick one manually
+            if (empty($data['department_id'])) {
+                $data['department_id'] = $employee?->department_id;
+                $data['department']    = $employee?->department;
+            }
         }
 
         $asset->update($data);
@@ -233,31 +260,26 @@ class AssetController extends Controller
         }
 
         return response()->json(
-            $asset->load(['company', 'category', 'assetCode', 'employee', 'histories.employee'])
+            $asset->load(['company', 'category', 'assetCode', 'employee', 'department', 'histories.employee'])
         );
     }
 
     /**
      * PRIVATE: GENERATE CONTROL NUMBER FOR AN ASSET
-     * Shared by store() and generateControlNumber()
      */
     private function generateControlNumberForAsset(AssetInventory $asset): AssetCode
     {
         $asset->loadMissing(['company', 'category']);
 
-        // Return existing if already generated
         $existing = AssetCode::where('asset_id', $asset->id)->first();
         if ($existing) return $existing;
 
-        // Company code prefix (e.g. GPCCCP)
         $companyCode = strtoupper(trim($asset->company?->code ?? 'ASSET'));
 
-        // Category abbreviation — first 3 letters uppercased (e.g. Laptop → LAP)
         $categoryCode = strtoupper(
             substr(preg_replace('/[^a-zA-Z]/', '', $asset->category?->name ?? 'GEN'), 0, 3)
         );
 
-        // Count assets in same company + category for sequence
         $sequence = AssetInventory::where('company_id', $asset->company_id)
             ->where('category_id', $asset->category_id)
             ->where(function ($query) use ($asset) {
@@ -269,10 +291,8 @@ class AssetController extends Controller
             })
             ->count();
 
-        // Final format: GPCCCP-LAP00006
         $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
 
-        // Collision safety net
         if (AssetCode::where('control_number', $controlNumber)->exists()) {
             $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
         }
@@ -284,7 +304,7 @@ class AssetController extends Controller
     }
 
     /**
-     * GENERATE CONTROL NUMBER (API endpoint — kept for manual/reprint use)
+     * GENERATE CONTROL NUMBER (API endpoint)
      */
     public function generateControlNumber($assetId)
     {
@@ -337,6 +357,7 @@ class AssetController extends Controller
                 'category',
                 'assetCode',
                 'employee',
+                'department',
                 'histories.employee',
             ])
         );
@@ -356,7 +377,7 @@ class AssetController extends Controller
      */
     public function assetList()
     {
-        $assets = AssetInventory::with(['company', 'employee'])
+        $assets = AssetInventory::with(['company', 'employee', 'department'])
             ->where('is_active', 1)
             ->get();
 
@@ -368,7 +389,7 @@ class AssetController extends Controller
      */
     public function assetListAll()
     {
-        $assets = AssetInventory::with(['company', 'employee'])->get();
+        $assets = AssetInventory::with(['company', 'employee', 'department'])->get();
         return response()->json($assets);
     }
 

@@ -15,6 +15,7 @@ class AssetInventory extends Model
         'person_in_charge',
         'person_in_charge_id',
         'department',
+        'department_id',
         'cost',
         'supplier',
         'model_number',
@@ -71,5 +72,9 @@ class AssetInventory extends Model
     public function histories()
     {
         return $this->hasMany(AssetHistory::class, 'asset_id')->orderBy('created_at', 'desc');
+    }
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
     }
 }

@@ -86,7 +86,7 @@ const confirmDelete = (id: number, name: string) => {
 // Detele department
 const deleteDepartment = async (id: number) => {
     try {
-        await api.delete(`/department/${id}`)
+        await api.delete(`/departments/${id}`)
         departments.value = departments.value.filter(d => d.id !==id)
     } catch (err) {
         Swal.fire('Error', 'Failed to delete category', 'error')

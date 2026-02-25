@@ -13,7 +13,8 @@ interface JwtPayload { exp: number; [key: string]: any }
 // Idle logout timer
 // -------------------------
 let idleTimer: number | null = null
-const idleTimeoutMinutes = 15 // idle timer 
+const idleTimeoutDays = 1 // idle timer
+const idleTimeoutMs = idleTimeoutDays * 24 * 60 * 60 * 1000
 let listenersAttached = false // <-- prevent multiple listeners
 
 // -------------------------
@@ -126,7 +127,7 @@ export const initIdleLogout = () => {
 
   const resetTimer = () => {
     if (idleTimer) clearTimeout(idleTimer)
-    idleTimer = window.setTimeout(() => showLogoutAlert(), idleTimeoutMinutes * 60 * 1000)
+    idleTimer = window.setTimeout(() => showLogoutAlert(), idleTimeoutMs)
   }
 
   ['mousemove', 'keypress', 'click', 'scroll'].forEach(event =>
@@ -138,7 +139,7 @@ export const initIdleLogout = () => {
 
 export const resetIdleLogout = () => {
   if (idleTimer) clearTimeout(idleTimer)
-  idleTimer = window.setTimeout(() => showLogoutAlert(), idleTimeoutMinutes * 60 * 1000)
+  idleTimer = window.setTimeout(() => showLogoutAlert(), idleTimeoutMs)
 }
 
 export const clearIdleLogout = () => {

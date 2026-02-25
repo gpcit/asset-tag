@@ -74,7 +74,8 @@ export const useUserStore = defineStore('user', () => {
     try {
       const { data } = await api.get('/assets')
       const rawAssets = Array.isArray(data) ? data : []
-      assets.value = mapAssetsToEmployees(rawAssets)
+      assets.value = rawAssets
+      console.log('First asset raw:', JSON.stringify(rawAssets[0], null, 2))  // 👈 add this
     } catch (err) {
       console.error('Failed to fetch assets:', err)
       assets.value = []

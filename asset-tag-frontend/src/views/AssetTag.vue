@@ -102,6 +102,7 @@ interface Asset {
   department?: Department
   employee?: Employee
   uniqueCode?: string
+  asset_code?: { control_number: string }
 }
 
 /* ------------------
@@ -830,10 +831,11 @@ initData()
       <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-emerald-900 text-white">
           <tr>
+            <th class="px-3 py-1 font-semibold w-24">Control Number</th>
             <th class="px-3 py-1 font-semibold w-24">Company</th>
             <th class="px-3 py-1 font-semibold w-24">Category</th>
-            <th class="px-3 py-1 font-semibold w-20">Invoice #</th>
-            <th class="px-3 py-1 font-semibold w-20">Invoice Date</th>
+            <!-- <th class="px-3 py-1 font-semibold w-20">Invoice #</th>
+            <th class="px-3 py-1 font-semibold w-20">Invoice Date</th> -->
             <th class="px-3 py-1 font-semibold w-20">Model #</th>
             <th class="px-3 py-1 font-semibold w-24">Supplier</th>
             <th class="px-3 py-1 font-semibold w-32">Specification</th>
@@ -843,10 +845,11 @@ initData()
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <tr v-for="asset in paginatedAssets" :key="asset.id" class="hover:bg-emerald-50">
+            <td class="px-3 py-1 break-words uppercase">{{ asset.asset_code?.control_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.company?.name || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.category?.name || '-' }}</td>
-            <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_number || '-' }}</td>
-            <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_date || '-' }}</td>
+            <!-- <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_number || '-' }}</td>
+            <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_date || '-' }}</td> -->
             <td class="px-3 py-1 break-words uppercase">{{ asset.model_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.specs || '-' }}</td>

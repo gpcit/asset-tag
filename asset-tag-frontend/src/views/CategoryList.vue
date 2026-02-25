@@ -8,23 +8,22 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 interface User {
-    id?: number
-      name?: string
-        username?: string
-          role?: 'admin' | 'staff'
-          }
+  id?: number
+  name?: string
+  username?: string
+  role?: 'admin' | 'staff'
+}
 
-          const user = ref<User>(
-            JSON.parse(localStorage.getItem('user') || '{}')
-            )
+const user = ref<User>(
+  JSON.parse(localStorage.getItem('user') || '{}')
+)
 
-            // Watch localStorage in case user changes (optional)
-            watch(
-              () => localStorage.getItem('user'),
-                (val) => {
-                    if (val) user.value = JSON.parse(val)
-                      }
-                      )
+watch(
+  () => localStorage.getItem('user'),
+  (val) => {
+    if (val) user.value = JSON.parse(val)
+  }
+)
 
 interface Category {
   id: number
@@ -34,6 +33,10 @@ interface Category {
 const categories = ref<Category[]>([])
 const search = ref('')
 const newCategory = ref('')
+
+// Edit state
+const editingId = ref<number | null>(null)
+const editingName = ref('')
 
 // Fetch categories
 const fetchCategories = async () => {
@@ -66,6 +69,34 @@ const addCategory = async () => {
   }
 }
 
+// Start editing
+const startEdit = (category: Category) => {
+  editingId.value = category.id
+  editingName.value = category.name
+}
+
+// Cancel editing
+const cancelEdit = () => {
+  editingId.value = null
+  editingName.value = ''
+}
+
+// Save edit
+const saveEdit = async (id: number) => {
+  const name = editingName.value.trim()
+  if (!name) return
+
+  try {
+    const res = await api.put<Category>(`/categories/${id}`, { name })
+    const index = categories.value.findIndex(c => c.id === id)
+    if (index !== -1) categories.value[index] = res.data
+    cancelEdit()
+    Swal.fire('Updated', 'Category updated successfully', 'success')
+  } catch (err) {
+    Swal.fire('Error', 'The name has already been taken', 'error')
+  }
+}
+
 // Confirm delete
 const confirmDelete = (id: number, name: string) => {
   Swal.fire({
@@ -73,8 +104,8 @@ const confirmDelete = (id: number, name: string) => {
     text: "This action cant be undone",
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonColor: '#dc2626', // Tailwind red-600
-    cancelButtonColor: '#6b7280', // Tailwind gray-500
+    confirmButtonColor: '#dc2626',
+    cancelButtonColor: '#6b7280',
     confirmButtonText: 'Yes, delete it!',
     cancelButtonText: 'Cancel'
   }).then(async (result) => {
@@ -97,8 +128,6 @@ const deleteCategory = async (id: number) => {
 
 onMounted(fetchCategories)
 </script>
-
-
 
 <template>
   <NavBar />
@@ -138,17 +167,50 @@ onMounted(fetchCategories)
       <li
         v-for="c in filteredCategories"
         :key="c.id"
-        class="flex justify-between items-center py-3 hover:bg-gray-50 rounded transition"
+        class="flex justify-between items-center py-3 hover:bg-gray-50 rounded transition px-2"
       >
-        <span class="text-gray-800">{{ c.name }}</span>
+        <!-- Inline edit input -->
+        <div v-if="editingId === c.id" class="flex flex-1 gap-2 mr-2">
+          <input
+            v-model="editingName"
+            type="text"
+            class="flex-1 border border-emerald-400 rounded px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            @keyup.enter="saveEdit(c.id)"
+            @keyup.escape="cancelEdit"
+            autofocus
+          />
+          <button
+            @click="saveEdit(c.id)"
+            class="px-3 py-1 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition text-sm font-medium"
+          >
+            Save
+          </button>
+          <button
+            @click="cancelEdit"
+            class="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition text-sm font-medium"
+          >
+            Cancel
+          </button>
+        </div>
 
-        <!-- Delete button with confirmation -->
-        <button v-if="user.role === 'admin'"
-          @click="confirmDelete(c.id, c.name)"
-          class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 hover:text-red-800 transition font-medium"
-        >
-          Delete
-        </button>
+        <!-- Normal view -->
+        <template v-else>
+          <span class="text-gray-800">{{ c.name }}</span>
+          <div class="flex gap-2">
+            <button v-if="user.role === 'admin'"
+              @click="startEdit(c)"
+              class="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 hover:text-blue-800 transition font-medium"
+            >
+              Edit
+            </button>
+            <button v-if="user.role === 'admin'"
+              @click="confirmDelete(c.id, c.name)"
+              class="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 hover:text-red-800 transition font-medium"
+            >
+              Delete
+            </button>
+          </div>
+        </template>
       </li>
     </ul>
 
@@ -161,6 +223,3 @@ onMounted(fetchCategories)
     </p>
   </div>
 </template>
-
-
-

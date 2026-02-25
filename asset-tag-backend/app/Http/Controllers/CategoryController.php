@@ -60,6 +60,46 @@ class CategoryController extends Controller
     }
 
     /**
+     * Update a category
+     */
+    public function update(Request $request, $id)
+    {
+        $category = Category::findOrFail($id);
+
+        $data = $request->validate([
+            'name' => 'required|string|unique:categories,name,' . $id,
+        ]);
+
+        $data['name'] = trim($data['name']);
+        $data['slug'] = Str::slug($data['name']);
+
+        $oldData = [
+            'name' => $category->name,
+            'slug' => $category->slug,
+        ];
+
+        $category->update($data);
+
+        ActivityLog::create([
+            'user_name' => auth()->user()->name ?? 'System',
+            'user_role' => auth()->user()->role ?? 'system',
+            'action'    => 'updated',
+            'module'    => 'Category',
+            'record_id' => $category->id,
+            'old_data'  => $oldData,
+            'new_data'  => [
+                'name' => $category->name,
+                'slug' => $category->slug,
+            ],
+        ]);
+
+        return response()->json([
+            'id'   => $category->id,
+            'name' => $category->name,
+        ]);
+    }
+
+    /**
      * Soft delete a category
      */
     public function destroy($id)

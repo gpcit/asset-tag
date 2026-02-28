@@ -172,7 +172,7 @@ const fetchEmployees = async () => {
 ------------------ */
 const emptyForm = (): AssetForm => ({
   person_in_charge_id: undefined,
-  department_id: undefined,   // ✅ fixed typo (was ddepartment_id)
+  department_id: undefined,
 
   invoiceNumber: '',
   invoiceDate: '',
@@ -415,7 +415,6 @@ const filteredAssets = computed<Asset[]>(() => {
       if (statusFilter.value === 'inactive' && asset.is_active) return false
       if (selectedCategory.value !== '' && asset.category_id !== selectedCategory.value) return false
       if (selectedCompany.value !== '' && asset.company_id !== selectedCompany.value) return false
-      // ✅ filter by department_id (number), not string
       if (departmentFilter.value !== '' && asset.department_id !== departmentFilter.value) return false
 
       if (query) {
@@ -453,7 +452,7 @@ watch([selectedCategory, selectedCompany, searchQuery, statusFilter, departmentF
 ------------------ */
 const mapFormToPayload = (f: AssetForm) => ({
   person_in_charge_id: f.person_in_charge_id ?? null,
-  department_id: f.department_id ?? null,   // ✅ sends ID to backend
+  department_id: f.department_id ?? null,
 
   invoice_number: f.invoiceNumber || '',
   invoice_date: f.invoiceDate || null,
@@ -521,7 +520,7 @@ const openEditModal = (asset: Asset) => {
     specs: asset.specs || '',
     asset_info: asset.asset_info || '',
     remarks: asset.remarks || '',
-    department_id: asset.department_id ?? undefined,   // ✅ correct field
+    department_id: asset.department_id ?? undefined,
     categoryId: asset.category_id ?? undefined,
     companyId: asset.company_id ?? undefined,
     is_active: asset.is_active ?? true,
@@ -544,23 +543,36 @@ const submitForm = async () => {
     const payload = mapFormToPayload(form.value)
 
     if (isEditing.value && editingAssetId.value) {
+      // ── EDIT ──────────────────────────────────────────────
       await api.put(`/assets/${editingAssetId.value}`, payload)
       Swal.fire('Updated!', 'Asset updated successfully.', 'success')
       showCreateModal.value = false
       form.value = emptyForm()
       await userStore.fetchAssets()
+
     } else {
+      // ── CREATE ────────────────────────────────────────────
       const res = await api.post('/assets', payload)
       const newAsset = res.data
+
+      // Backend returns control number inside assetCode or asset_code
+      const controlNumber =
+        newAsset.assetCode?.control_number ||
+        newAsset.asset_code?.control_number
 
       showCreateModal.value = false
       form.value = emptyForm()
       await userStore.fetchAssets()
 
+      // ✅ Auto-download tag immediately — no modal needed
+      if (controlNumber) {
+        await tagModalRef.value?.autoDownloadTag(newAsset, controlNumber)
+      }
+
       await Swal.fire({
         icon: 'success',
         title: 'Asset Created!',
-        html: 'Asset has been successfully created.<br>A tag has been generated for this asset.',
+        html: 'Asset has been successfully created.<br>The tag has been downloaded automatically.',
         confirmButtonText: 'Close',
         confirmButtonColor: '#059669',
       })
@@ -676,7 +688,6 @@ const exportExcel = async () => {
       } else if (key === 'company_id') {
         value = formatCellValue(asset.company?.name)
       } else if (key === 'department') {
-        // ✅ resolve department name from store instead of raw ID
         const dept = userStore.departments?.find((d: Department) => d.id === asset.department_id)
         value = formatCellValue(dept?.name)
       } else {
@@ -746,7 +757,7 @@ const getDepartmentName = (departmentId?: number): string => {
 ------------------ */
 const initData = async () => {
   loading.value = true
-  await userStore.initializeData()   // ✅ must include fetchDepartments() in store
+  await userStore.initializeData()
   await fetchEmployees()
   loading.value = false
 }
@@ -803,7 +814,6 @@ initData()
         <label class="block text-sm font-medium mb-1">Department</label>
         <select v-model="departmentFilter" class="w-full border rounded px-3 py-2 text-sm">
           <option value="">All Departments</option>
-          <!-- ✅ loaded from userStore.departments -->
           <option v-for="dept in userStore.departments" :key="dept.id" :value="dept.id">
             {{ dept.name }}
           </option>
@@ -834,8 +844,6 @@ initData()
             <th class="px-3 py-1 font-semibold w-24">Control Number</th>
             <th class="px-3 py-1 font-semibold w-24">Company</th>
             <th class="px-3 py-1 font-semibold w-24">Category</th>
-            <!-- <th class="px-3 py-1 font-semibold w-20">Invoice #</th>
-            <th class="px-3 py-1 font-semibold w-20">Invoice Date</th> -->
             <th class="px-3 py-1 font-semibold w-20">Model #</th>
             <th class="px-3 py-1 font-semibold w-24">Supplier</th>
             <th class="px-3 py-1 font-semibold w-32">Specification</th>
@@ -848,8 +856,6 @@ initData()
             <td class="px-3 py-1 break-words uppercase">{{ asset.asset_code?.control_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.company?.name || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.category?.name || '-' }}</td>
-            <!-- <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_number || '-' }}</td>
-            <td class="px-3 py-1 break-words uppercase">{{ asset.invoice_date || '-' }}</td> -->
             <td class="px-3 py-1 break-words uppercase">{{ asset.model_number || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.specs || '-' }}</td>
@@ -914,7 +920,6 @@ initData()
         <!-- Department -->
         <div>
           <label class="block text-sm font-medium mb-1">Department</label>
-          <!-- ✅ bound to form.department_id, options from userStore.departments -->
           <select v-model="form.department_id" class="w-full border px-2 py-1 rounded text-sm border-gray-300">
             <option :value="undefined">Select Department</option>
             <option v-for="dept in userStore.departments" :key="dept.id" :value="dept.id">
@@ -995,17 +1000,14 @@ initData()
   <div v-if="showHistoryModal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" @click.self="showHistoryModal = false">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-3xl p-6 max-h-[90vh] overflow-y-auto">
 
-      <!-- Header -->
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-lg font-bold">Asset Details & Assignment History</h2>
         <button @click="showHistoryModal = false" class="text-gray-600 hover:text-gray-900 text-2xl">&times;</button>
       </div>
 
-      <!-- Assignment Form -->
       <div v-if="user.role === 'admin'" class="bg-white-50 p-4 rounded-lg mb-6">
         <h3 class="font-semibold mb-3 text-black-900">Update Assignment</h3>
 
-        <!-- Assigned Employee (Searchable) -->
         <div class="relative mb-4">
           <label class="block text-sm font-medium mb-1">Assigned Employee</label>
           <div class="flex gap-2">
@@ -1049,12 +1051,10 @@ initData()
 
       <hr class="my-4">
 
-      <!-- Asset Info -->
       <h3 class="font-semibold mb-2">Asset Information</h3>
       <div class="grid grid-cols-2 gap-4 text-sm mb-6">
         <p><b>Company:</b> {{ selectedAsset?.company?.name || '—' }}</p>
         <p><b>Category:</b> {{ selectedAsset?.category?.name || '—' }}</p>
-        <!-- ✅ resolve department name from store -->
         <p><b>Department:</b> {{ getDepartmentName(selectedAsset?.department_id) }}</p>
         <p><b>Model:</b> {{ selectedAsset?.model_number || '—' }}</p>
         <p><b>Supplier:</b> {{ selectedAsset?.supplier || '—' }}</p>
@@ -1064,7 +1064,6 @@ initData()
 
       <hr class="my-4">
 
-      <!-- Assignment History -->
       <h3 class="font-semibold mb-2">Assignment History</h3>
       <div class="overflow-x-auto">
         <table class="w-full text-sm border border-gray-300">
@@ -1088,16 +1087,8 @@ initData()
               <td class="p-2 border">{{ h.remarks || '—' }}</td>
               <td v-if="user.role === 'admin'" class="p-2 border text-center">
                 <div v-if="!h.isCurrent" class="flex gap-1 justify-center">
-                  <button
-                    @click="openEditHistoryModal(h)"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium"
-                    title="Edit"
-                  >✏️</button>
-                  <button
-                    @click="deleteHistoryEntry(h.id)"
-                    class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium"
-                    title="Delete"
-                  >🗑️</button>
+                  <button @click="openEditHistoryModal(h)" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium" title="Edit">✏️</button>
+                  <button @click="deleteHistoryEntry(h.id)" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium" title="Delete">🗑️</button>
                 </div>
                 <span v-else class="text-gray-400 text-xs">—</span>
               </td>
@@ -1110,7 +1101,6 @@ initData()
           </tbody>
         </table>
       </div>
-
     </div>
   </div>
 
@@ -1169,7 +1159,6 @@ initData()
           💾 Save Changes
         </button>
       </div>
-
     </div>
   </div>
 
@@ -1202,5 +1191,6 @@ initData()
     </div>
   </div>
 
+  <!-- ✅ AssetFormat mounted here — tagModalRef exposes autoDownloadTag -->
   <AssetFormat ref="tagModalRef" @tagCreated="handleTagCreated" />
 </template>

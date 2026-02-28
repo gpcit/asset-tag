@@ -42,6 +42,21 @@ class AssetInventory extends Model
         'person_in_charge_id' => 'integer',
     ];
 
+    protected static function booted(): void
+    {
+        static::deleting(function (AssetInventory $asset) {
+            // ✅ Soft delete the related asset code when asset is deleted
+            $asset->assetCode()->delete();
+        });
+
+        static::restoring(function (AssetInventory $asset) {
+            // ✅ Restore the related asset code when asset is restored
+            AssetCode::withTrashed()
+                ->where('asset_id', $asset->id)
+                ->restore();
+        });
+    }
+
     protected $dates = ['invoice_date', 'date_deployed', 'date_returned', 'deleted_at'];
 
     // Enable timestamps

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import QRCode from 'qrcode'
 import html2canvas from 'html2canvas'
 import Swal from 'sweetalert2'
@@ -30,6 +30,7 @@ const qrCodeDataUrl = ref('')
 const captureRef = ref<HTMLElement | null>(null)
 const isReprint = ref(false)
 const isLoading = ref(false)
+const isAutoDownloading = ref(false) // hides overlay during silent auto-download
 
 const emit = defineEmits<{
   tagCreated: [assetId: number, controlNumber: string]
@@ -95,13 +96,7 @@ const generateTag = async (asset: Asset) => {
 
     taggingAsset.value = { ...asset, uniqueCode: assetCode }
 
-    const qrText =
-      `Control Number: ${assetCode}\n` +
-      `Company: ${asset.company?.name ?? 'No Company'}\n` +
-      `Department: ${asset.department ?? 'No Department'}\n` +
-      `Category: ${asset.category?.name ?? 'No Category'}\n` +
-      `Invoice Date: ${asset.invoice_date ?? 'N/A'}\n` +
-      `Specification: ${asset.specs ?? 'N/A'}`
+    const qrText = buildQrText(asset, assetCode)
 
     qrCodeDataUrl.value = await QRCode.toDataURL(qrText, {
       width: 300,
@@ -123,72 +118,112 @@ const generateTag = async (asset: Asset) => {
 }
 
 /* =========================
+   BUILD QR TEXT HELPER
+========================= */
+const buildQrText = (asset: Asset, controlNumber: string): string => {
+  return (
+    `Control Number: ${controlNumber}\n` +
+    `Company: ${asset.company?.name ?? 'No Company'}\n` +
+    `Department: ${asset.department?.name ?? 'No Department'}\n` +
+    `Category: ${asset.category?.name ?? 'No Category'}\n` +
+    `Invoice Date: ${asset.invoice_date ?? 'N/A'}\n` +
+    `Specification: ${asset.specs ?? 'N/A'}`
+  )
+}
+
+/* =========================
+   CAPTURE captureRef TO BLOB
+   Used by both downloadImage
+   and autoDownloadTag — always
+   captures the real Vue DOM so
+   the output is pixel-identical
+   to what the modal shows.
+========================= */
+const captureRefToBlob = async (): Promise<Blob | null> => {
+  if (!captureRef.value) return null
+
+  const canvas = await html2canvas(captureRef.value, {
+    scale: 2,
+    backgroundColor: '#ffffff',
+    useCORS: true
+  })
+
+  const cmToPixel = 57
+  const targetWidth = Math.round(6.4 * cmToPixel)
+  const targetHeight = Math.round(3.8 * cmToPixel)
+
+  const resizedCanvas = document.createElement('canvas')
+  resizedCanvas.width = targetWidth
+  resizedCanvas.height = targetHeight
+
+  const ctx = resizedCanvas.getContext('2d')
+  if (ctx) {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, targetWidth, targetHeight)
+    ctx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
+  }
+
+  return new Promise<Blob | null>((resolve) => {
+    resizedCanvas.toBlob((blob) => resolve(blob), 'image/png')
+  })
+}
+
+/* =========================
+   SAVE TO BATCH PRINTING
+========================= */
+const saveToBatch = async (assetId: number, controlNumber: string, blob: Blob) => {
+  const formData = new FormData()
+  formData.append('asset_id', assetId.toString())
+  formData.append('unique_code', controlNumber)
+  formData.append('tag_image', blob, `${controlNumber}.png`)
+
+  await api.post('/batch-tags/save', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+/* =========================
+   TRIGGER FILE DOWNLOAD
+========================= */
+const triggerDownload = (blob: Blob, controlNumber: string) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${controlNumber}.png`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+/* =========================
    DOWNLOAD IMAGE
+   (called from Print button
+   inside the modal)
 ========================= */
 const downloadImage = async () => {
   if (!captureRef.value || !taggingAsset.value?.uniqueCode) return
 
   try {
-    const canvas = await html2canvas(captureRef.value, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      useCORS: true
-    })
+    const blob = await captureRefToBlob()
+    if (!blob) return
 
-    const targetWidthCm = 6.4
-    const targetHeightCm = 3.8
-    const cmToPixel = 57
-    const targetWidth = Math.round(targetWidthCm * cmToPixel)
-    const targetHeight = Math.round(targetHeightCm * cmToPixel)
+    const controlNumber = taggingAsset.value!.uniqueCode!
 
-    const resizedCanvas = document.createElement('canvas')
-    resizedCanvas.width = targetWidth
-    resizedCanvas.height = targetHeight
+    triggerDownload(blob, controlNumber)
 
-    const ctx = resizedCanvas.getContext('2d')
-    if (ctx) {
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, targetWidth, targetHeight)
-      ctx.drawImage(canvas, 0, 0, targetWidth, targetHeight)
+    try {
+      await saveToBatch(taggingAsset.value!.id, controlNumber, blob)
+    } catch (err) {
+      console.error('Batch save failed', err)
     }
 
-    resizedCanvas.toBlob(async (blob) => {
-      if (!blob) return
+    await Swal.fire({
+      icon: 'success',
+      title: isReprint.value ? 'Tag Reprinted!' : 'Tag Generated!',
+      timer: 1500,
+      showConfirmButton: false
+    })
 
-      const controlNumber = taggingAsset.value!.uniqueCode!
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `${controlNumber}.png`
-      link.click()
-      URL.revokeObjectURL(url)
-
-      /* ===== Upload for Batch Printing ===== */
-      try {
-        const formData = new FormData()
-        formData.append('asset_id', taggingAsset.value!.id.toString())
-        formData.append('unique_code', controlNumber)
-        formData.append('tag_image', blob, `${controlNumber}.png`)
-
-        await api.post('/batch-tags/save', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
-      } catch (err) {
-        console.error('Batch save failed', err)
-      }
-      /* ===================================== */
-
-      await Swal.fire({
-        icon: 'success',
-        title: isReprint.value ? 'Tag Reprinted!' : 'Tag Generated!',
-        timer: 1500,
-        showConfirmButton: false
-      })
-
-      closeModal()
-
-    }, 'image/png')
+    closeModal()
 
   } catch (err) {
     console.error(err)
@@ -196,6 +231,73 @@ const downloadImage = async () => {
       icon: 'error',
       title: 'Failed to download tag.'
     })
+  }
+}
+
+/* =========================
+   AUTO DOWNLOAD TAG
+   Called externally after asset creation:
+     tagModalRef.value?.autoDownloadTag(newAsset, controlNumber)
+
+   Strategy: populate the same Vue reactive state
+   that the modal template uses, hide the overlay
+   visually, wait for nextTick so captureRef renders,
+   capture it with html2canvas (pixel-identical to
+   what the Print button produces), then clean up.
+========================= */
+const autoDownloadTag = async (asset: Asset, controlNumber: string) => {
+  try {
+    // 1. Build QR data URL
+    const qrText = buildQrText(asset, controlNumber)
+    const generatedQr = await QRCode.toDataURL(qrText, {
+      width: 300,
+      margin: 2,
+      color: { dark: '#000000', light: '#ffffff' }
+    })
+
+    // 2. Populate reactive state so template renders captureRef
+    taggingAsset.value = { ...asset, uniqueCode: controlNumber }
+    qrCodeDataUrl.value = generatedQr
+    isLoading.value = false
+    // Show modal so captureRef mounts, but keep it visually hidden
+    // via the overlay being off-screen (we move it in the template)
+    isAutoDownloading.value = true
+    showTagModal.value = true
+
+    // 3. Wait for Vue to render captureRef into the DOM
+    await nextTick()
+    // Extra tick to ensure images inside captureRef have painted
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // 4. Capture the real rendered captureRef — identical to Print button
+    const blob = await captureRefToBlob()
+
+    if (!blob) {
+      console.error('autoDownloadTag: blob is null')
+      return
+    }
+
+    // 5. Download + batch save
+    triggerDownload(blob, controlNumber)
+
+    try {
+      await saveToBatch(asset.id, controlNumber, blob)
+    } catch (err) {
+      console.error('Batch save failed', err)
+    }
+
+  } catch (err) {
+    console.error('autoDownloadTag error:', err)
+    Swal.fire({
+      icon: 'error',
+      title: 'Auto Tag Download Failed',
+      text: 'The tag could not be downloaded automatically. Please use the Print Tagging button.',
+      confirmButtonColor: '#2d6b54'
+    })
+  } finally {
+    // 6. Clean up all state silently — no modal shown to user
+    isAutoDownloading.value = false
+    closeModal()
   }
 }
 
@@ -208,13 +310,14 @@ const closeModal = () => {
   qrCodeDataUrl.value = ''
   isReprint.value = false
   isLoading.value = false
+  isAutoDownloading.value = false
 }
 
-defineExpose({ openTagModal, openReprintModal })
+defineExpose({ openTagModal, openReprintModal, autoDownloadTag })
 </script>
 
 <template>
-  <div v-if="showTagModal" class="modal-overlay" @click.self="closeModal">
+  <div v-if="showTagModal" class="modal-overlay" :style="isAutoDownloading ? 'opacity:0; pointer-events:none;' : ''" @click.self="closeModal">
     <div class="modal-content">
       <div class="tag-container">
 
@@ -386,7 +489,7 @@ defineExpose({ openTagModal, openReprintModal })
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center; /* ✅ added */
+  text-align: center;
 }
 
 .company-logo {
@@ -409,18 +512,18 @@ defineExpose({ openTagModal, openReprintModal })
 }
 
 .company-name {
-  font-size: 26px; /* ✅ slightly reduced to fit long names */
+  font-size: 26px;
   font-weight: 700;
   color: #1a5c4a;
-  text-align: center; /* ✅ added */
-  word-break: break-word; /* ✅ prevents overflow on long names */
+  text-align: center;
+  word-break: break-word;
 }
 
 .company-code {
-  font-size: 22px; /* ✅ slightly reduced */
+  font-size: 22px;
   font-weight: 600;
   color: #2d6b54;
-  text-align: center; /* ✅ added */
+  text-align: center;
 }
 
 .print-btn {

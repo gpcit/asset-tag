@@ -59,7 +59,7 @@ class AssetController extends Controller
             'totalAssets'       => $totalAssets,
             'totalCost'         => $totalCost,
             'byCompany'         => $byCompany,
-            // ✅ count() already excludes soft-deleted rows automatically
+            // count() already excludes soft-deleted rows automatically
             'assets_with_codes' => AssetCode::count(),
         ]);
     }
@@ -263,7 +263,7 @@ class AssetController extends Controller
     {
         $asset->loadMissing(['company', 'category']);
 
-        // ✅ Also check withTrashed so we don't create a duplicate
+        // Also check withTrashed so we don't create a duplicate
         //    for a previously soft-deleted code on the same asset
         $existing = AssetCode::withTrashed()->where('asset_id', $asset->id)->first();
         if ($existing) {
@@ -293,7 +293,7 @@ class AssetController extends Controller
 
         $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
 
-        // ✅ Also check withTrashed for uniqueness so we don't reuse
+        // Also check withTrashed for uniqueness so we don't reuse
         //    a control number that belongs to a soft-deleted record
         if (AssetCode::withTrashed()->where('control_number', $controlNumber)->exists()) {
             $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
@@ -367,7 +367,7 @@ class AssetController extends Controller
 
     /**
      * DELETE ASSET
-     * ✅ Soft deletes the asset — the AssetInventory model's
+     *  Soft deletes the asset — the AssetInventory model's
      *    booted() observer cascades the soft delete to asset_codes.
      */
     public function destroy(AssetInventory $asset)
@@ -383,7 +383,7 @@ class AssetController extends Controller
             'new_data'  => ['deleted_at' => now()],
         ]);
 
-        // ✅ This triggers the deleting observer in AssetInventory
+        //  This triggers the deleting observer in AssetInventory
         //    which calls $asset->assetCode()->delete() automatically
         $asset->delete();
 

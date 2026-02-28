@@ -564,7 +564,7 @@ const submitForm = async () => {
       form.value = emptyForm()
       await userStore.fetchAssets()
 
-      // ✅ Auto-download tag immediately — no modal needed
+      //  Auto-download tag immediately — no modal needed
       if (controlNumber) {
         await tagModalRef.value?.autoDownloadTag(newAsset, controlNumber)
       }

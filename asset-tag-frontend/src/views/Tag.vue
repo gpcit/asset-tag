@@ -13,7 +13,8 @@ interface Asset {
   department?: {
     id: number
     name: string
-  }
+    [key: string]: any
+  } | string
   invoice_number?: string
   invoice_date?: string
   cost?: number
@@ -402,7 +403,7 @@ onMounted(() => {
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-        <p><span class="text-gray-500">Department:</span> {{ foundAsset.department }}</p>
+        <p><span class="text-gray-500">Department:</span> {{ typeof foundAsset.department === 'object' ? foundAsset.department?.name : foundAsset.department || '-' }}</p>
         <p><span class="text-gray-500">Invoice Date:</span> {{ foundAsset.invoice_date }}</p>
         <p><span class="text-gray-500">Specification:</span> {{ foundAsset.specs }}</p>
         <p><span class="text-gray-500">Category:</span> {{ foundAsset.category?.name || '-' }}</p>

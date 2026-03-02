@@ -59,7 +59,6 @@ class AssetController extends Controller
             'totalAssets'       => $totalAssets,
             'totalCost'         => $totalCost,
             'byCompany'         => $byCompany,
-            // count() already excludes soft-deleted rows automatically
             'assets_with_codes' => AssetCode::count(),
         ]);
     }
@@ -77,6 +76,7 @@ class AssetController extends Controller
             'asset.company',
             'asset.category',
             'asset.employee',
+            'asset.department',
         ])
         ->where('control_number', $request->unique_code)
         ->first();
@@ -124,14 +124,25 @@ class AssetController extends Controller
             'is_active'           => 'nullable|boolean',
         ]);
 
+        // ✅ If department_id is provided, sync the department name string column
+        if (!empty($data['department_id'])) {
+            $dept = Department::find($data['department_id']);
+            $data['department'] = $dept?->name;
+        }
+
+        // ✅ If employee is assigned
         if (!empty($data['person_in_charge_id'])) {
             $employee = Employee::find($data['person_in_charge_id']);
 
             $data['person_in_charge'] = $employee?->name;
             $data['date_deployed']    = now()->format('Y-m-d');
 
+            // Only set department from employee if user didn't pick one manually
             if (empty($data['department_id'])) {
                 $data['department_id'] = $employee?->department_id;
+                // Sync department name from employee's department
+                $empDept = Department::find($employee?->department_id);
+                $data['department'] = $empDept?->name;
             }
         }
 
@@ -170,6 +181,12 @@ class AssetController extends Controller
             'remarks'             => 'nullable|string',
         ]);
 
+        // ✅ If department_id is provided, sync the department name string column
+        if (!empty($data['department_id'])) {
+            $dept = Department::find($data['department_id']);
+            $data['department'] = $dept?->name;
+        }
+
         $oldData = $asset->only(array_keys($data));
 
         /**
@@ -181,7 +198,10 @@ class AssetController extends Controller
                 DB::table('asset_histories')->insert([
                     'asset_id'      => $asset->id,
                     'employee_id'   => $asset->person_in_charge_id,
-                    'department'    => $asset->department?->name,
+                    // ✅ Handle department as either string column or relationship object
+                    'department'    => is_object($asset->department)
+                                        ? $asset->department?->name
+                                        : $asset->department,
                     'date_deployed' => $asset->date_deployed,
                     'date_returned' => $data['date_returned'],
                     'remarks'       => $data['remarks'] ?? $asset->remarks,
@@ -190,9 +210,11 @@ class AssetController extends Controller
                 ]);
             }
 
+            // ✅ Clear both department fields on return
             $data['person_in_charge_id'] = null;
             $data['person_in_charge']    = null;
             $data['department_id']       = null;
+            $data['department']          = null;
             $data['date_deployed']       = null;
             $data['remarks']             = null;
         }
@@ -206,7 +228,10 @@ class AssetController extends Controller
                 DB::table('asset_histories')->insert([
                     'asset_id'      => $asset->id,
                     'employee_id'   => $asset->person_in_charge_id,
-                    'department'    => $asset->department?->name,
+                    // ✅ Handle department as either string column or relationship object
+                    'department'    => is_object($asset->department)
+                                        ? $asset->department?->name
+                                        : $asset->department,
                     'date_deployed' => $asset->date_deployed,
                     'date_returned' => now()->format('Y-m-d'),
                     'remarks'       => $asset->remarks,
@@ -222,8 +247,12 @@ class AssetController extends Controller
             $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
             $data['remarks']          = $data['remarks'] ?? null;
 
+            // Only set department from employee if user didn't pick one manually
             if (empty($data['department_id'])) {
                 $data['department_id'] = $employee?->department_id;
+                // Sync department name from employee's department
+                $empDept = Department::find($employee?->department_id);
+                $data['department'] = $empDept?->name;
             }
         }
 
@@ -263,11 +292,8 @@ class AssetController extends Controller
     {
         $asset->loadMissing(['company', 'category']);
 
-        // Also check withTrashed so we don't create a duplicate
-        //    for a previously soft-deleted code on the same asset
         $existing = AssetCode::withTrashed()->where('asset_id', $asset->id)->first();
         if ($existing) {
-            // If it was soft-deleted, restore it instead of creating a new one
             if ($existing->trashed()) {
                 $existing->restore();
             }
@@ -293,8 +319,6 @@ class AssetController extends Controller
 
         $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
 
-        // Also check withTrashed for uniqueness so we don't reuse
-        //    a control number that belongs to a soft-deleted record
         if (AssetCode::withTrashed()->where('control_number', $controlNumber)->exists()) {
             $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
         }
@@ -326,19 +350,27 @@ class AssetController extends Controller
 
     /**
      * DOWNLOAD QR TAG
+     * ✅ department handled as both string column or relationship object
      */
     public function downloadTag($control_number)
     {
         $assetCode = AssetCode::with([
             'asset.company',
             'asset.category',
+            'asset.department',
         ])->where('control_number', $control_number)->firstOrFail();
 
         $asset = $assetCode->asset;
 
+        // ✅ Handle department as either a string column or a relationship object
+        $departmentName = is_object($asset->department)
+            ? ($asset->department?->name ?? 'N/A')
+            : ($asset->department ?? 'N/A');
+
         $qrText =
             "Control Number: {$assetCode->control_number}\n" .
             "Company: "      . ($asset->company?->name  ?? 'N/A') . "\n" .
+            "Department: "   . $departmentName . "\n" .
             "Category: "     . ($asset->category?->name ?? 'N/A') . "\n" .
             "Invoice Date: " . ($asset->invoice_date    ?? 'N/A') . "\n" .
             "Specs: "        . ($asset->specs            ?? 'N/A');
@@ -367,8 +399,6 @@ class AssetController extends Controller
 
     /**
      * DELETE ASSET
-     *  Soft deletes the asset — the AssetInventory model's
-     *    booted() observer cascades the soft delete to asset_codes.
      */
     public function destroy(AssetInventory $asset)
     {
@@ -383,8 +413,6 @@ class AssetController extends Controller
             'new_data'  => ['deleted_at' => now()],
         ]);
 
-        //  This triggers the deleting observer in AssetInventory
-        //    which calls $asset->assetCode()->delete() automatically
         $asset->delete();
 
         return response()->json(null, 204);

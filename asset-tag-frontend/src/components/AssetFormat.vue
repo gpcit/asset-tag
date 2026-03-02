@@ -18,7 +18,8 @@ interface Asset {
   department?: {
     id: number
     name: string
-  }
+    [key: string]: any
+  } | string
   specs?: string
   asset_code?: { control_number: string }
   invoice_date?: string
@@ -30,7 +31,7 @@ const qrCodeDataUrl = ref('')
 const captureRef = ref<HTMLElement | null>(null)
 const isReprint = ref(false)
 const isLoading = ref(false)
-const isAutoDownloading = ref(false) // hides overlay during silent auto-download
+const isAutoDownloading = ref(false)
 
 const emit = defineEmits<{
   tagCreated: [assetId: number, controlNumber: string]
@@ -82,7 +83,12 @@ const generateTag = async (asset: Asset) => {
     let assetCode: string
 
     if (asset.asset_code?.control_number) {
-      assetCode = asset.asset_code.control_number
+      // ✅ Reprint: fetch the full asset from the server so department is populated
+      const response = await api.get(`/assets/${asset.id}`)
+      const freshAsset: Asset = response.data
+      assetCode = freshAsset.asset_code?.control_number ?? asset.asset_code.control_number
+
+      taggingAsset.value = { ...freshAsset, uniqueCode: assetCode }
     } else {
       const response = await api.post(`/assets/${asset.id}/generate-code`)
       assetCode = response.data?.unique_code
@@ -92,11 +98,13 @@ const generateTag = async (asset: Asset) => {
       }
 
       emit('tagCreated', asset.id, assetCode)
+
+      // ✅ Fetch fresh asset so department is populated
+      const freshResponse = await api.get(`/assets/${asset.id}`)
+      taggingAsset.value = { ...freshResponse.data, uniqueCode: assetCode }
     }
 
-    taggingAsset.value = { ...asset, uniqueCode: assetCode }
-
-    const qrText = buildQrText(asset, assetCode)
+    const qrText = buildQrText(taggingAsset.value!, taggingAsset.value!.uniqueCode!)
 
     qrCodeDataUrl.value = await QRCode.toDataURL(qrText, {
       width: 300,
@@ -121,10 +129,14 @@ const generateTag = async (asset: Asset) => {
    BUILD QR TEXT HELPER
 ========================= */
 const buildQrText = (asset: Asset, controlNumber: string): string => {
+  const deptName = typeof asset.department === 'object'
+    ? (asset.department?.name ?? 'No Department')
+    : (asset.department ?? 'No Department')
+
   return (
     `Control Number: ${controlNumber}\n` +
     `Company: ${asset.company?.name ?? 'No Company'}\n` +
-    `Department: ${asset.department?.name ?? 'No Department'}\n` +
+    `Department: ${deptName}\n` +
     `Category: ${asset.category?.name ?? 'No Category'}\n` +
     `Invoice Date: ${asset.invoice_date ?? 'N/A'}\n` +
     `Specification: ${asset.specs ?? 'N/A'}`
@@ -133,11 +145,6 @@ const buildQrText = (asset: Asset, controlNumber: string): string => {
 
 /* =========================
    CAPTURE captureRef TO BLOB
-   Used by both downloadImage
-   and autoDownloadTag — always
-   captures the real Vue DOM so
-   the output is pixel-identical
-   to what the modal shows.
 ========================= */
 const captureRefToBlob = async (): Promise<Blob | null> => {
   if (!captureRef.value) return null
@@ -196,8 +203,7 @@ const triggerDownload = (blob: Blob, controlNumber: string) => {
 
 /* =========================
    DOWNLOAD IMAGE
-   (called from Print button
-   inside the modal)
+   (called from Print button inside the modal)
 ========================= */
 const downloadImage = async () => {
   if (!captureRef.value || !taggingAsset.value?.uniqueCode) return
@@ -236,40 +242,29 @@ const downloadImage = async () => {
 
 /* =========================
    AUTO DOWNLOAD TAG
-   Called externally after asset creation:
-     tagModalRef.value?.autoDownloadTag(newAsset, controlNumber)
-
-   Strategy: populate the same Vue reactive state
-   that the modal template uses, hide the overlay
-   visually, wait for nextTick so captureRef renders,
-   capture it with html2canvas (pixel-identical to
-   what the Print button produces), then clean up.
 ========================= */
 const autoDownloadTag = async (asset: Asset, controlNumber: string) => {
   try {
-    // 1. Build QR data URL
-    const qrText = buildQrText(asset, controlNumber)
+    // ✅ Fetch fresh asset from server to ensure department is fully populated
+    const response = await api.get(`/assets/${asset.id}`)
+    const freshAsset: Asset = response.data
+
+    const qrText = buildQrText(freshAsset, controlNumber)
     const generatedQr = await QRCode.toDataURL(qrText, {
       width: 300,
       margin: 2,
       color: { dark: '#000000', light: '#ffffff' }
     })
 
-    // 2. Populate reactive state so template renders captureRef
-    taggingAsset.value = { ...asset, uniqueCode: controlNumber }
+    taggingAsset.value = { ...freshAsset, uniqueCode: controlNumber }
     qrCodeDataUrl.value = generatedQr
     isLoading.value = false
-    // Show modal so captureRef mounts, but keep it visually hidden
-    // via the overlay being off-screen (we move it in the template)
     isAutoDownloading.value = true
     showTagModal.value = true
 
-    // 3. Wait for Vue to render captureRef into the DOM
     await nextTick()
-    // Extra tick to ensure images inside captureRef have painted
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    // 4. Capture the real rendered captureRef — identical to Print button
     const blob = await captureRefToBlob()
 
     if (!blob) {
@@ -277,7 +272,6 @@ const autoDownloadTag = async (asset: Asset, controlNumber: string) => {
       return
     }
 
-    // 5. Download + batch save
     triggerDownload(blob, controlNumber)
 
     try {
@@ -295,7 +289,6 @@ const autoDownloadTag = async (asset: Asset, controlNumber: string) => {
       confirmButtonColor: '#2d6b54'
     })
   } finally {
-    // 6. Clean up all state silently — no modal shown to user
     isAutoDownloading.value = false
     closeModal()
   }

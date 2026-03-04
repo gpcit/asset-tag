@@ -5,7 +5,7 @@ import type { InternalAxiosRequestConfig } from 'axios'
 import Swal from 'sweetalert2'
 import 'sweetalert2/dist/sweetalert2.min.css'
 
-const API_URL = 'http://localhost:8000/api' // change this in prod 10.20.20.10
+const API_URL = 'http://localhost:8000/api'
 
 interface JwtPayload { exp: number; [key: string]: any }
 
@@ -13,9 +13,9 @@ interface JwtPayload { exp: number; [key: string]: any }
 // Idle logout timer
 // -------------------------
 let idleTimer: number | null = null
-const idleTimeoutDays = 1 // idle timer
+const idleTimeoutDays = 1
 const idleTimeoutMs = idleTimeoutDays * 24 * 60 * 60 * 1000
-let listenersAttached = false // <-- prevent multiple listeners
+let listenersAttached = false
 
 // -------------------------
 // Logout function
@@ -74,6 +74,14 @@ const api = axios.create({
 // Request interceptor
 // -------------------------
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  // 👇 TEMPORARY DEBUG
+  try {
+    JSON.stringify(config)
+  } catch (e) {
+    console.error('🔴 CIRCULAR IN CONFIG:', new Error().stack)
+    console.log('config keys:', Object.keys(config))
+  }
+
   const token = localStorage.getItem('token')
   if (!token) return config
 
@@ -84,20 +92,20 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     throw new AxiosError('Token expired')
   }
 
-  // Refresh token if expiring soon
   if (isTokenExpiringSoon(token)) {
     try {
-      const res = await api.post('/refresh', {}, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await axios.post(`${API_URL}/refresh`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
       newToken = res.data.token
       localStorage.setItem('token', newToken)
-      resetIdleLogout() // ✅ reset timer, do not add listeners again
+      resetIdleLogout()
     } catch {
       showLogoutAlert()
       throw new AxiosError('Cannot refresh token')
     }
   }
 
-  // Safe headers mutation
   if (config.headers) {
     (config.headers as any).Authorization = `Bearer ${newToken}`
   } else {
@@ -111,7 +119,16 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 // Response interceptor
 // -------------------------
 api.interceptors.response.use(
-  response => response,
+  response => {
+    // 👇 TEMPORARY DEBUG
+    try {
+      JSON.stringify(response)
+    } catch (e) {
+      console.error('🔴 CIRCULAR IN RESPONSE:', new Error().stack)
+      console.log('response keys:', Object.keys(response))
+    }
+    return response
+  },
   (error: AxiosError) => {
     if (error.response?.status === 401) showLogoutAlert()
     return Promise.reject(error)
@@ -122,18 +139,15 @@ api.interceptors.response.use(
 // Idle logout (sliding session)
 // -------------------------
 export const initIdleLogout = () => {
-  if (listenersAttached) return // ✅ only attach once
+  if (listenersAttached) return
   listenersAttached = true
-
   const resetTimer = () => {
     if (idleTimer) clearTimeout(idleTimer)
     idleTimer = window.setTimeout(() => showLogoutAlert(), idleTimeoutMs)
   }
-
   ['mousemove', 'keypress', 'click', 'scroll'].forEach(event =>
     window.addEventListener(event, resetTimer)
   )
-
   resetTimer()
 }
 

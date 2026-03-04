@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import Swal from 'sweetalert2'
 import { login as loginService } from '@/services/auth'
 import { useUserStore } from '@/stores/user'
-import { initAutoLogout } from '@/services/autoLogout' // ← ADD THIS
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -26,8 +25,6 @@ const login = async () => {
     userStore.setUser(data)
     await userStore.initializeData()
     
-    // Initialize auto-logout with the new token
-    initAutoLogout() // ← ADD THIS
     
     await Swal.fire({
       icon: 'success',

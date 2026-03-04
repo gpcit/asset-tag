@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { initIdleLogout, clearIdleLogout } from '@/services/api' // ✅ correct functions
+import { initIdleLogout, clearIdleLogout,} from '@/services/api'
 
 onMounted(() => {
   console.log("App mounted, initializing idle logout");

@@ -453,18 +453,17 @@ watch([selectedCategory, selectedCompany, searchQuery, statusFilter, departmentF
 const mapFormToPayload = (f: AssetForm) => ({
   person_in_charge_id: f.person_in_charge_id ?? null,
   department_id: f.department_id ?? null,
-
   invoice_number: f.invoiceNumber || '',
   invoice_date: f.invoiceDate || null,
-
   cost: f.cost !== undefined ? Number(f.cost) : null,
   supplier: f.supplier || '',
   model_number: f.modelNumber || '',
   specs: f.specs || '',
   asset_info: f.asset_info || '',
   remarks: f.remarks || '',
-
-  date_deployed: f.dateDeployed || null,
+  
+  // Ensure these match your AssetForm interface and backend columns
+  date_deployed: f.dateDeployed || null, 
   date_returned: f.dateReturned || null,
 
   category_id: f.categoryId ?? null,
@@ -512,6 +511,11 @@ const openEditModal = (asset: Asset) => {
   editingAssetId.value = asset.id
 
   form.value = {
+    // ADD THESE TWO LINES:
+    person_in_charge_id: asset.person_in_charge_id || asset.employee?.id || undefined,
+    dateDeployed: asset.date_deployed || '',
+    
+    // Existing fields:
     invoiceNumber: asset.invoice_number || '',
     invoiceDate: asset.invoice_date || '',
     cost: asset.cost || undefined,
@@ -524,6 +528,13 @@ const openEditModal = (asset: Asset) => {
     categoryId: asset.category_id ?? undefined,
     companyId: asset.company_id ?? undefined,
     is_active: asset.is_active ?? true,
+  }
+
+  // Also update the search text so the UI shows the name
+  if (asset.employee) {
+    employeeSearch.value = asset.employee.name
+  } else {
+    employeeSearch.value = ''
   }
 
   showCreateModal.value = true

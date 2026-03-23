@@ -52,10 +52,37 @@ const softDeleteTag = async (tag: BatchTag) => {
   }
 }
 
-// PRINT + MARK AS PRINTED
+// CONVERT IMAGE URL TO BLOB URL (faster than base64)
+const toBase64 = (url: string): Promise<string> => {
+  return fetch(url)
+    .then(res => res.blob())
+    .then(blob => URL.createObjectURL(blob))
+    .catch(() => url) // fallback to original URL if conversion fails
+}
+  
+// PRINT + MARK AS PRINTED (only unprinted tags)
 const printAll = async () => {
+  // ✅ Only print tags that are not yet printed
+  const unprintedTags = batchTags.value.filter(tag => tag.print_status === 'not_printed')
+
+  if (unprintedTags.length === 0) {
+    Swal.fire('Nothing to Print', 'All tags have already been printed.', 'info')
+    return
+  }
+
+  const tagsWithBase64 = await Promise.all(
+    unprintedTags.map(async tag => ({
+      ...tag,
+      base64Url: await toBase64(tag.url)
+    }))
+  )
+
+  // ✅ Open window after conversion
   const win = window.open('', '_blank')
-  if (!win) return
+  if (!win) {
+    Swal.fire('Popup Blocked', 'Please allow popups for this site and try again.', 'warning')
+    return
+  }
 
   win.document.write(`
     <html>
@@ -97,28 +124,35 @@ const printAll = async () => {
       <body>
   `)
 
-  batchTags.value.forEach(tag => {
+  tagsWithBase64.forEach(tag => {
     win.document.write(`
       <div class="tag">
-        <img src="${tag.url}" />
+        <img src="${tag.base64Url}" />
       </div>
     `)
   })
 
   win.document.write('</body></html>')
   win.document.close()
-  win.focus()
-  win.print()
-  win.close()
 
-  // Mark each tag as printed
+  // ✅ Images are blob URLs so they load instantly — print immediately on load
+  win.onload = () => {
+    win.focus()
+    win.print()
+    win.close()
+  }
+
+  // ✅ Only mark the unprinted tags as printed
   try {
     await Promise.all(
-      batchTags.value.map(tag =>
+      unprintedTags.map(tag =>
         api.post(`/batch-tags/${tag.id}/mark-printed`)
       )
     )
-    batchTags.value.forEach(t => (t.print_status = 'printed'))
+    unprintedTags.forEach(tag => {
+      const found = batchTags.value.find(t => t.id === tag.id)
+      if (found) found.print_status = 'printed'
+    })
   } catch (err) {
     console.error('Failed to update print status', err)
   }

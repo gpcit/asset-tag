@@ -179,7 +179,6 @@ class AssetController extends Controller
         'invoice_date'        => 'nullable|date',
         'invoice_number'      => 'nullable|string|max:255',
         'remarks'             => 'nullable|string',
-        'assignment_remarks' => 'nullable|string',
     ]);
 
     $oldData = $asset->toArray();
@@ -194,8 +193,8 @@ class AssetController extends Controller
                 'employee_id'   => $asset->person_in_charge_id,
                 'date_deployed' => $asset->date_deployed,
                 'date_returned' => $data['date_returned'],
-                // We use the remarks sent specifically for this return action
-                'remarks'       => $data['assignment_remarks'] ?? 'Returned',
+
+                'remarks'       => $data['remarks'] ?? '',
                 'created_at'    => now(),
                 'updated_at'    => now(),
             ]);
@@ -204,7 +203,7 @@ class AssetController extends Controller
         $data['person_in_charge_id'] = null;
         $data['person_in_charge']    = null;
         $data['date_deployed']       = null;
-        // We clear the asset remarks after a return so it's fresh for the next user
+        
         $data['remarks']             = null; 
     } 
     

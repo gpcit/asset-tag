@@ -341,24 +341,26 @@ elseif (!empty($historyRemarks) && $asset->person_in_charge_id) {
         }
 
         $companyCode = strtoupper(trim($asset->company?->code ?? 'ASSET'));
-
         $categoryCode = strtoupper(
             substr(preg_replace('/[^a-zA-Z]/', '', $asset->category?->name ?? 'GEN'), 0, 3)
         );
 
-        $sequence = AssetInventory::where('company_id', $asset->company_id)
+        // ✅ Count ALL assets including soft-deleted ones so we never reuse a number
+        $sequence = AssetInventory::withTrashed()
+            ->where('company_id', $asset->company_id)
             ->where('category_id', $asset->category_id)
             ->where(function ($query) use ($asset) {
                 $query->where('created_at', '<', $asset->created_at)
                     ->orWhere(function ($q) use ($asset) {
                         $q->where('created_at', $asset->created_at)
-                          ->where('id', '<=', $asset->id);
+                        ->where('id', '<=', $asset->id);
                     });
             })
             ->count();
 
         $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
 
+        // Collision fallback — should rarely happen now
         if (AssetCode::withTrashed()->where('control_number', $controlNumber)->exists()) {
             $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
         }

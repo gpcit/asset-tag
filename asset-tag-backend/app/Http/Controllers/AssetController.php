@@ -161,7 +161,7 @@ class AssetController extends Controller
     /**
      * UPDATE ASSET
      */
-    public function update(Request $request, AssetInventory $asset)
+   public function update(Request $request, AssetInventory $asset)
 {
     $data = $request->validate([
         'person_in_charge_id' => 'nullable|exists:employees,id',
@@ -179,61 +179,125 @@ class AssetController extends Controller
         'invoice_date'        => 'nullable|date',
         'invoice_number'      => 'nullable|string|max:255',
         'remarks'             => 'nullable|string',
+        'history_remarks'     => 'nullable|string',
     ]);
 
     $oldData = $asset->toArray();
 
+    $historyRemarks = $data['history_remarks'] ?? '';
+    unset($data['history_remarks']);
+
     /**
-     * 1. HANDLE ASSET RETURN
-     */
-    if ($request->filled('date_returned')) {
-        if ($asset->person_in_charge_id) {
+ * 1. HANDLE ASSET RETURN
+ */
+if ($request->filled('date_returned')) {
+    if ($asset->person_in_charge_id) {
+        $openHistory = DB::table('asset_histories')
+            ->where('asset_id', $asset->id)
+            ->whereNull('date_returned')
+            ->whereNull('deleted_at')
+            ->first();
+
+        if ($openHistory) {
+            DB::table('asset_histories')
+                ->where('id', $openHistory->id)
+                ->update([
+                    'date_returned' => $data['date_returned'],
+                    'remarks'       => $historyRemarks ?: $openHistory->remarks,
+                    'updated_at'    => now(),
+                ]);
+        } else {
             DB::table('asset_histories')->insert([
                 'asset_id'      => $asset->id,
                 'employee_id'   => $asset->person_in_charge_id,
                 'date_deployed' => $asset->date_deployed,
                 'date_returned' => $data['date_returned'],
-
-                'remarks'       => $data['remarks'] ?? '',
+                'remarks'       => $historyRemarks,
                 'created_at'    => now(),
                 'updated_at'    => now(),
             ]);
         }
+    }
 
-        $data['person_in_charge_id'] = null;
-        $data['person_in_charge']    = null;
-        $data['date_deployed']       = null;
-        
-        $data['remarks']             = null; 
-    } 
-    
+    $data['person_in_charge_id'] = null;
+    $data['person_in_charge']    = null;
+    $data['date_deployed']       = null;
+    // ✅ removed $data['remarks'] = null — asset remarks stays untouched
+}
     /**
      * 2. HANDLE NEW ASSIGNMENT (Transfer)
      */
     elseif ($request->filled('person_in_charge_id') && $request->person_in_charge_id != $asset->person_in_charge_id) {
-        
-        if ($asset->person_in_charge_id) {
-            DB::table('asset_histories')->insert([
-                'asset_id'      => $asset->id,
-                'employee_id'   => $asset->person_in_charge_id,
-                'date_deployed' => $asset->date_deployed,
-                'date_returned' => now()->format('Y-m-d'),
-                'remarks'       => 'TRANSFERRED: Reassigned to new PIC',
-                'created_at'    => now(),
-                'updated_at'    => now(),
-            ]);
-        }
+    if ($asset->person_in_charge_id) {
+        // Close existing open row
+        $openHistory = DB::table('asset_histories')
+            ->where('asset_id', $asset->id)
+            ->whereNull('date_returned')
+            ->whereNull('deleted_at')
+            ->first();
 
-        $employee = Employee::find($data['person_in_charge_id']);
-        if ($employee) {
-            $data['person_in_charge'] = $employee->name;
-            $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
-            $data['date_returned']    = null;
+        if ($openHistory) {
+            DB::table('asset_histories')
+                ->where('id', $openHistory->id)
+                ->update([
+                    'date_returned' => now()->format('Y-m-d'),
+                    'remarks'       => $openHistory->remarks ?: ($historyRemarks ?: 'TRANSFERRED: Reassigned to new PIC'),
+                    'updated_at'    => now(),
+                ]);
         }
     }
 
+    $employee = Employee::find($data['person_in_charge_id']);
+    if ($employee) {
+        $data['person_in_charge'] = $employee->name;
+        $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
+        $data['date_returned']    = null;
+
+        // ✅ Always open a fresh row for the new employee
+        DB::table('asset_histories')->insert([
+            'asset_id'      => $asset->id,
+            'employee_id'   => $data['person_in_charge_id'],
+            'date_deployed' => $data['date_deployed'],
+            'date_returned' => null,
+            'remarks'       => $historyRemarks,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+    }
+}
+
+/**
+ * 3. SAVE HISTORY REMARKS ON PLAIN SAVE (no return/transfer)
+ */
+elseif (!empty($historyRemarks) && $asset->person_in_charge_id) {
+    $openHistory = DB::table('asset_histories')
+        ->where('asset_id', $asset->id)
+        ->whereNull('date_returned')
+        ->whereNull('deleted_at')
+        ->first();
+
+    if ($openHistory) {
+        DB::table('asset_histories')
+            ->where('id', $openHistory->id)
+            ->update([
+                'remarks'    => $historyRemarks,
+                'updated_at' => now(),
+            ]);
+    } else {
+        // ✅ No open row exists — create one (first time saving remarks)
+        DB::table('asset_histories')->insert([
+            'asset_id'      => $asset->id,
+            'employee_id'   => $asset->person_in_charge_id,
+            'date_deployed' => $asset->date_deployed,
+            'date_returned' => null,
+            'remarks'       => $historyRemarks,
+            'created_at'    => now(),
+            'updated_at'    => now(),
+        ]);
+    }
+}
     /**
-     * 3. PREVENT OVERWRITING
+     * 4. PREVENT OVERWRITING
      */
     if (!$request->has('person_in_charge_id') && !isset($data['person_in_charge_id'])) {
         unset($data['person_in_charge_id']);
@@ -244,7 +308,6 @@ class AssetController extends Controller
 
     $asset->update($data);
 
-    // Logging and Response...
     $changes = $asset->getChanges();
     if (!empty($changes)) {
         ActivityLog::create([

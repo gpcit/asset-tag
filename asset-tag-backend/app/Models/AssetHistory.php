@@ -15,6 +15,7 @@ class AssetHistory extends Model
         'department',
         'date_deployed',
         'date_returned',
+        'history_remarks'
     ];
 
     public function asset()

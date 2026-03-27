@@ -136,7 +136,7 @@ const historyForm = ref({
   person_in_charge_id: undefined as number | undefined,
   dateDeployed: '',
   dateReturned: '',
-  remarks: ''
+  historyRemarks: ''
 })
 
 // Edit history modal state
@@ -146,7 +146,7 @@ const historyEditForm = ref({
   employee_id: undefined as number | undefined,
   date_deployed: '',
   date_returned: '',
-  remarks: ''
+  historyRemarks: ''
 })
 const historyEditEmployeeSearch = ref('')
 const showHistoryEditEmployeeList = ref(false)
@@ -291,19 +291,19 @@ const viewHistory = async (asset: any) => {
     const res = await api.get(`/assets/${asset.id}`)
     selectedAsset.value = res.data
 
+    // ✅ Find the open history row to pre-fill the remarks
+    const openHistory = res.data.histories?.find(
+      (h: any) => !h.date_returned && h.employee_id === res.data.person_in_charge_id
+    )
+
     historyForm.value = {
       person_in_charge_id: res.data.person_in_charge_id ?? undefined,
-      dateDeployed: res.data.date_deployed || '',
-      dateReturned: res.data.date_returned || '',
-      remarks: res.data.remarks || ''
+      dateDeployed:        res.data.date_deployed || '',
+      dateReturned:        res.data.date_returned || '',
+      historyRemarks:      openHistory?.remarks || '',  // ✅ pre-fill from open history row
     }
 
-    if (res.data.employee) {
-      historyEmployeeSearch.value = res.data.employee.name
-    } else {
-      historyEmployeeSearch.value = ''
-    }
-
+    historyEmployeeSearch.value = res.data.employee?.name || ''
     showHistoryModal.value = true
   } catch (err) {
     console.error('Error fetching asset history:', err)
@@ -317,7 +317,7 @@ const updateAssetAssignment = async () => {
       person_in_charge_id: historyForm.value.person_in_charge_id ?? null,
       date_deployed: historyForm.value.dateDeployed || null,
       date_returned: historyForm.value.dateReturned || null,
-      remarks: historyForm.value.remarks || ''
+      history_remarks: historyForm.value.historyRemarks || '',
     }
 
     await api.put(`/assets/${selectedAsset.value.id}`, payload)
@@ -740,14 +740,24 @@ const exportExcel = async () => {
 const combinedHistory = computed(() => {
   if (!selectedAsset.value) return []
 
-  const histories = selectedAsset.value.histories || []
+  const histories = (selectedAsset.value.histories || [])
+    .filter((h: any) => {
+      // Hide open rows that duplicate the current assignment display
+      if (!h.date_returned && h.employee_id === selectedAsset.value.person_in_charge_id) {
+        return false
+      }
+      return true
+    })
+
   const currentAssignment = selectedAsset.value.employee ? {
     id: 'current',
     employee: selectedAsset.value.employee,
     employee_id: selectedAsset.value.person_in_charge_id,
     date_deployed: selectedAsset.value.date_deployed,
     date_returned: selectedAsset.value.date_returned,
-    remarks: selectedAsset.value.remarks,
+    remarks: selectedAsset.value.histories?.find(
+      (h: any) => !h.date_returned && h.employee_id === selectedAsset.value.person_in_charge_id
+    )?.remarks || '',   // ✅ pull remarks from the open history row
     isCurrent: true
   } : null
 
@@ -1050,7 +1060,7 @@ initData()
 
         <div class="mb-4">
           <label class="block text-sm font-medium mb-1">Remarks</label>
-          <textarea v-model="historyForm.remarks" rows="3" placeholder="Add any notes or remarks about this assignment..." class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
+          <textarea v-model="historyForm.historyRemarks" rows="3" placeholder="Add any notes or remarks about this assignment..." class="w-full border px-2 py-1 rounded text-sm resize-y border-gray-300"></textarea>
         </div>
 
         <div class="mt-4">

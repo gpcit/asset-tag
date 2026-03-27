@@ -52,17 +52,30 @@ const softDeleteTag = async (tag: BatchTag) => {
   }
 }
 
-// CONVERT IMAGE URL TO BLOB URL (faster than base64)
+// CONVERT IMAGE URL TO BASE64 (more reliable across browsers than blob URLs)
 const toBase64 = (url: string): Promise<string> => {
-  return fetch(url)
-    .then(res => res.blob())
-    .then(blob => URL.createObjectURL(blob))
-    .catch(() => url) // fallback to original URL if conversion fails
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth || img.width
+      canvas.height = img.naturalHeight || img.height
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(img, 0, 0)
+        resolve(canvas.toDataURL('image/png'))
+      } else {
+        resolve(url)
+      }
+    }
+    img.onerror = () => resolve(url) // fallback to original URL
+    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now() // cache bust
+  })
 }
-  
-// PRINT + MARK AS PRINTED (only unprinted tags)
+
+// PRINT ALL UNPRINTED TAGS
 const printAll = async () => {
-  // ✅ Only print tags that are not yet printed
   const unprintedTags = batchTags.value.filter(tag => tag.print_status === 'not_printed')
 
   if (unprintedTags.length === 0) {
@@ -70,6 +83,7 @@ const printAll = async () => {
     return
   }
 
+  // Convert all images to base64 first
   const tagsWithBase64 = await Promise.all(
     unprintedTags.map(async tag => ({
       ...tag,
@@ -77,72 +91,125 @@ const printAll = async () => {
     }))
   )
 
-  // ✅ Open window after conversion
-  const win = window.open('', '_blank')
+  // Build the full HTML string
+  const tagHtml = tagsWithBase64.map(tag => `
+    <div class="tag">
+      <img src="${tag.base64Url}" />
+    </div>
+  `).join('')
+
+  const printHtml = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Batch Tags</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      @page {
+        size: A4 portrait;
+        margin: 5mm;
+      }
+
+      html, body {
+        width: 210mm;
+        background: white;
+      }
+
+      body {
+        display: grid;
+        grid-template-columns: repeat(3, 64mm);
+        grid-auto-rows: 38mm;
+        gap: 4mm;
+        justify-content: center;
+        padding: 5mm;
+      }
+
+      .tag {
+        width: 64mm;
+        height: 38mm;
+        border: 0.5mm dashed black;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        overflow: hidden;
+      }
+
+      .tag img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      @media print {
+        body {
+          display: grid;
+          grid-template-columns: repeat(3, 64mm);
+          grid-auto-rows: 38mm;
+          gap: 4mm;
+          justify-content: center;
+          padding: 5mm;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    ${tagHtml}
+    <script>
+      // Wait for all images then print
+      window.addEventListener('load', function () {
+        var images = document.querySelectorAll('img')
+        var loaded = 0
+        var total = images.length
+
+        if (total === 0) {
+          setTimeout(function() { window.print() }, 300)
+          return
+        }
+
+        function checkAllLoaded() {
+          loaded++
+          if (loaded >= total) {
+            // Small delay to ensure render is complete
+            setTimeout(function() {
+              window.focus()
+              window.print()
+            }, 300)
+          }
+        }
+
+        images.forEach(function(img) {
+          if (img.complete) {
+            checkAllLoaded()
+          } else {
+            img.addEventListener('load', checkAllLoaded)
+            img.addEventListener('error', checkAllLoaded) // count errors too so we don't hang
+          }
+        })
+      })
+    <\/script>
+  </body>
+</html>`
+
+  // Open print window
+  const win = window.open('', '_blank', 'width=800,height=600')
   if (!win) {
     Swal.fire('Popup Blocked', 'Please allow popups for this site and try again.', 'warning')
     return
   }
 
-  win.document.write(`
-    <html>
-      <head>
-        <title>Batch Tags</title>
-        <style>
-          @page {
-            size: A4;
-            margin: 0;
-          }
-
-          body {
-            margin: 5mm;
-            display: grid;
-            grid-template-columns: repeat(3, 64mm);
-            grid-auto-rows: 38mm;
-            gap: 4mm;
-            justify-content: center;
-          }
-
-          .tag {
-            width: 64mm;
-            height: 38mm;
-            border: 0.5mm dashed black;
-            box-sizing: border-box;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            page-break-inside: avoid;
-          }
-
-          .tag img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-          }
-        </style>
-      </head>
-      <body>
-  `)
-
-  tagsWithBase64.forEach(tag => {
-    win.document.write(`
-      <div class="tag">
-        <img src="${tag.base64Url}" />
-      </div>
-    `)
-  })
-
-  win.document.write('</body></html>')
+  win.document.open()
+  win.document.write(printHtml)
   win.document.close()
 
-  // ✅ Images are blob URLs so they load instantly — print immediately on load
-  win.onload = () => {
-    win.focus()
-    win.print()
-    win.close()
-  }
-
-  // ✅ Only mark the unprinted tags as printed
+  // Mark as printed after opening the print window
   try {
     await Promise.all(
       unprintedTags.map(tag =>
@@ -220,6 +287,10 @@ onMounted(fetchBatchTags)
           🗑 Delete
         </button>
       </div>
+    </div>
+
+    <div v-if="!loading && batchTags.length === 0" class="text-center text-gray-400 mt-10">
+      No batch tags found.
     </div>
   </div>
 </template>

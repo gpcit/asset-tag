@@ -424,7 +424,8 @@ const filteredAssets = computed<Asset[]>(() => {
           (asset.employee?.name ?? '').toLowerCase().includes(query) ||
           ((asset as any).person_in_charge ?? '').toLowerCase().includes(query) ||
           (asset.category?.name ?? '').toLowerCase().includes(query) ||
-          (asset.specs ?? '').toLowerCase().includes(query)
+          (asset.specs ?? '').toLowerCase().includes(query) ||
+          (asset.asset_code?.control_number ?? '').toLowerCase().includes(query)
         )
       }
 

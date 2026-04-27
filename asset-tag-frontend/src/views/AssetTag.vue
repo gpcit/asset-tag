@@ -103,6 +103,11 @@ interface Asset {
   employee?: Employee
   uniqueCode?: string
   asset_code?: { control_number: string }
+  histories?: {
+    employee?:{
+      name: string
+    }
+  } []
 }
 
 /* ------------------
@@ -300,7 +305,7 @@ const viewHistory = async (asset: any) => {
       person_in_charge_id: res.data.person_in_charge_id ?? undefined,
       dateDeployed:        res.data.date_deployed || '',
       dateReturned:        res.data.date_returned || '',
-      historyRemarks:      openHistory?.remarks || '',  // ✅ pre-fill from open history row
+      historyRemarks:      openHistory?.remarks || '',  // pre-fill from open history row
     }
 
     historyEmployeeSearch.value = res.data.employee?.name || ''
@@ -425,7 +430,8 @@ const filteredAssets = computed<Asset[]>(() => {
           ((asset as any).person_in_charge ?? '').toLowerCase().includes(query) ||
           (asset.category?.name ?? '').toLowerCase().includes(query) ||
           (asset.specs ?? '').toLowerCase().includes(query) ||
-          (asset.asset_code?.control_number ?? '').toLowerCase().includes(query)
+          (asset.asset_code?.control_number ?? '').toLowerCase().includes(query) ||
+          (asset.histories ?? []).some(h =>(h.employee?.name ?? '').toLowerCase().includes(query))
         )
       }
 

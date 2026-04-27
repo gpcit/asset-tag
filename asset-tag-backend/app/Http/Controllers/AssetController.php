@@ -24,6 +24,7 @@ class AssetController extends Controller
             'assetCode',
             'employee',
             'department',
+            'histories.employee',
         ]);
 
         if ($request->boolean('has_unique_code')) {

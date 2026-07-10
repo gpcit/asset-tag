@@ -636,6 +636,7 @@ const allFields = [
   { key: 'asset_info', label: 'Asset Info' },
   { key: 'specs', label: 'Specifications' },
   { key: 'date_deployed', label: 'Date Deployed' },
+  { key: 'status', label: 'Status' },
   { key: 'remarks', label: 'Remarks' },
 ]
 
@@ -708,7 +709,10 @@ const exportExcel = async () => {
       } else if (key === 'department') {
         const dept = userStore.departments?.find((d: Department) => d.id === asset.department_id)
         value = formatCellValue(dept?.name)
-      } else {
+      } else if (key == 'status') {
+        value = asset.is_active ? 'Active' : 'Inactive'
+      }    
+      else {
         value = formatCellValue((asset as any)[key])
       }
 

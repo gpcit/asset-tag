@@ -866,16 +866,17 @@ initData()
 
     <!-- Main Table -->
     <div class="flex-1 overflow-x-auto border border-gray-200 rounded shadow-sm">
-      <table class="min-w-full divide-y divide-gray-200 text-sm">
+      <table class="min-w-full table-fixed divide-y divide-gray-200 text-sm">
         <thead class="bg-emerald-900 text-white">
           <tr>
-            <th class="px-3 py-1 font-semibold w-24">Control Number</th>
-            <th class="px-3 py-1 font-semibold w-24">Company</th>
-            <th class="px-3 py-1 font-semibold w-24">Category</th>
-            <th class="px-3 py-1 font-semibold w-20">Model #</th>
-            <th class="px-3 py-1 font-semibold w-24">Supplier</th>
-            <th class="px-3 py-1 font-semibold w-32">Specification</th>
-            <th class="px-3 py-1 font-semibold w-32">Asset Info</th>
+            <th class="px-3 py-1 font-semibold w-24 text-left">Control Number</th>
+            <th class="px-3 py-1 font-semibold w-24 text-left">Company</th>
+            <th class="px-3 py-1 font-semibold w-24 text-left">Category</th>
+            <th class="px-3 py-1 font-semibold w-20 text-left">Model #</th>
+            <th class="px-3 py-1 font-semibold w-24 text-left">Supplier</th>
+            <th class="px-3 py-1 font-semibold w-32 text-left">Specification</th>
+            <th class="px-3 py-1 font-semibold w-32 text-left">Asset Info</th>
+            <th class="px-3 py-1 font-semibold w-32 text-center">Status</th>
             <th class="px-3 py-1 font-semibold w-20 text-center">Actions</th>
           </tr>
         </thead>
@@ -888,6 +889,15 @@ initData()
             <td class="px-3 py-1 break-words uppercase">{{ asset.supplier || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.specs || '-' }}</td>
             <td class="px-3 py-1 break-words uppercase">{{ asset.asset_info }}</td>
+            <td class="px-3 py-1 uppercase w-32 text-center">
+              <span
+                :class="asset.is_active
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-red-100 text-red-800 border border-red-300'"
+                class="px-2 py-1 rounded-full text-xs font-semibold">
+                {{ asset.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
             <td class="px-3 py-1 text-center whitespace-nowrap justify-center gap-1">
               <button @click="openEditModal(asset)" class="bg-blue-900 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Edit">✏️</button>
               <button v-if="user.role === 'admin'" @click="deleteAsset(asset)" class="bg-red-900 hover:bg-red-700 text-white px-2 py-1 rounded text-sm font-medium me-3" title="Delete">🗑️</button>

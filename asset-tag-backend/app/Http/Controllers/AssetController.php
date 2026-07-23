@@ -18,6 +18,8 @@ class AssetController extends Controller
      */
     public function index(Request $request)
     {
+        $user = auth()->user();
+
         $query = AssetInventory::with([
             'company',
             'category',
@@ -26,6 +28,12 @@ class AssetController extends Controller
             'department',
             'histories.employee',
         ]);
+
+        // Staff only see assets belonging to their assigned companies
+        if ($user->role !== 'admin') {
+            $companyIds = $user->companies()->pluck('companies.id');
+            $query->whereIn('company_id', $companyIds);
+        }
 
         if ($request->boolean('has_unique_code')) {
             $query->whereHas('assetCode');

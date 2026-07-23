@@ -1,21 +1,35 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import NavBar from '@/components/NavBar.vue'
 import api from '@/services/api'
 import Swal from 'sweetalert2'
+
+interface Company {
+  id: number
+  name: string
+}
 
 interface User {
   id: number
   name: string
   username: string
   role: 'admin' | 'staff'
+  company_ids: number[]
 }
 
 const users = ref<User[]>([])
+const companies = ref<Company[]>([])
+const openDropdown = ref<number | null>(null)
+const dropdownPos = ref({ top: 0, left: 0 })
 
 const fetchUsers = async () => {
   const res = await api.get('/users')
   users.value = res.data
+}
+
+const fetchCompanies = async () => {
+  const res = await api.get('/companies')
+  companies.value = res.data
 }
 
 const toggleRole = async (user: User) => {
@@ -40,8 +54,77 @@ const toggleRole = async (user: User) => {
   }
 }
 
+const toggleDropdown = (userId: number, event: MouseEvent) => {
+  if (openDropdown.value === userId) {
+    openDropdown.value = null
+    return
+  }
 
-onMounted(fetchUsers)
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+
+  dropdownPos.value = {
+    top: rect.bottom + window.scrollY + 4,
+    left: rect.left + window.scrollX + rect.width / 2,
+  }
+
+  openDropdown.value = userId
+}
+
+const companyLabel = (u: User) => {
+  if (!u.company_ids?.length) return 'No companies'
+  if (u.company_ids.length === 1) {
+    const c = companies.value.find(c => c.id === u.company_ids[0])
+    return c?.name ?? '1 selected'
+  }
+  return `${u.company_ids.length} companies`
+}
+
+const toggleCompany = (u: User, companyId: number) => {
+  const idx = u.company_ids.indexOf(companyId)
+  if (idx === -1) {
+    u.company_ids.push(companyId)
+  } else {
+    u.company_ids.splice(idx, 1)
+  }
+}
+
+const saveCompanies = async (u: User) => {
+  try {
+    await api.post(`/users/${u.id}/companies`, {
+      company_ids: u.company_ids
+    })
+
+    openDropdown.value = null
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Companies Updated',
+      text: `${u.name}'s access has been updated`,
+      timer: 1200,
+      showConfirmButton: false
+    })
+  } catch (err) {
+    Swal.fire('Error', 'Failed to update companies', 'error')
+  }
+}
+
+const handleClickOutside = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (!target.closest('.company-dropdown') && !target.closest('.company-dropdown-panel')) {
+    openDropdown.value = null
+  }
+}
+
+onMounted(() => {
+  fetchUsers()
+  fetchCompanies()
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <template>
@@ -60,6 +143,7 @@ onMounted(fetchUsers)
             <th class="px-4 py-3">Username</th>
             <th class="px-4 py-3 text-center">Role</th>
             <th class="px-4 py-3 text-center">Action</th>
+            <th class="px-4 py-3 text-center">Companies</th>
           </tr>
         </thead>
 
@@ -113,10 +197,63 @@ onMounted(fetchUsers)
                 </div>
               </label>
             </td>
+
+            <!-- Company Multi-select -->
+            <td class="px-4 py-3 text-center relative company-dropdown">
+              <span
+                v-if="u.role === 'admin'"
+                class="text-xs text-gray-500 italic"
+              >
+                All Companies
+              </span>
+
+              <button
+                v-else
+                type="button"
+                @click="toggleDropdown(u.id, $event)"
+                class="border rounded-lg px-3 py-1 text-sm text-gray-700 bg-white hover:bg-gray-50 w-40 mx-auto flex justify-between items-center gap-2"
+              >
+                <span class="truncate">{{ companyLabel(u) }}</span>
+                <span class="text-gray-400">▾</span>
+              </button>
+            </td>
+
+            <!-- Teleported dropdown panel, rendered outside the table -->
+            <Teleport to="body">
+              <div
+                v-if="openDropdown === u.id"
+                class="company-dropdown-panel fixed z-50 w-72 bg-white border rounded-lg shadow-lg p-2 text-left max-h-60 overflow-y-auto"
+                :style="{ top: dropdownPos.top + 'px', left: dropdownPos.left + 'px', transform: 'translateX(-50%)' }"
+              >
+                <label
+                  v-for="c in companies"
+                  :key="c.id"
+                  class="flex items-start gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    :value="c.id"
+                    :checked="u.company_ids.includes(c.id)"
+                    @change="toggleCompany(u, c.id)"
+                    class="mt-1"
+                  />
+                  <span>{{ c.name }}</span>
+                </label>
+
+                <div class="flex justify-end mt-2 pt-2 border-t sticky bottom-0 bg-white">
+                  <button
+                    @click="saveCompanies(u)"
+                    class="text-xs bg-emerald-500 text-white px-3 py-1 rounded hover:bg-emerald-600"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </Teleport>
           </tr>
 
           <tr v-if="users.length === 0">
-            <td colspan="4" class="text-center py-6 text-gray-500">
+            <td colspan="5" class="text-center py-6 text-gray-500">
               No users found
             </td>
           </tr>

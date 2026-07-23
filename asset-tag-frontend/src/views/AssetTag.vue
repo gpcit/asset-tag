@@ -22,6 +22,7 @@ interface User {
   name?: string
   username?: string
   role?: 'admin' | 'staff'
+  company_ids?: number[]
 }
 
 interface Employee {
@@ -157,6 +158,15 @@ const historyEditEmployeeSearch = ref('')
 const showHistoryEditEmployeeList = ref(false)
 
 const userStore = useUserStore()
+
+/* ------------------
+ Companies visible to the logged-in user
+------------------ */
+const visibleCompanies = computed(() => {
+  if (user.value.role === 'admin') return userStore.companies
+  const allowedIds = user.value.company_ids ?? []
+  return userStore.companies.filter(c => allowedIds.includes(c.id))
+})
 
 /* ------------------
  Employees
@@ -857,7 +867,7 @@ initData()
         <label class="block text-sm font-medium mb-1">Company</label>
         <select v-model="selectedCompany" class="w-full border rounded px-3 py-2">
           <option value="">All Companies</option>
-          <option v-for="comp in userStore.companies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
+          <option v-for="comp in visibleCompanies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
         </select>
       </div>
 
@@ -944,7 +954,7 @@ initData()
           <label class="block text-sm font-medium mb-1">Company <span class="text-red-500">*</span></label>
           <select v-model="form.companyId" class="w-full border px-2 py-1 rounded text-sm" :class="errors.companyId ? 'border-red-500' : 'border-gray-300'">
             <option value="">Select Company</option>
-            <option v-for="comp in userStore.companies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
+            <option v-for="comp in visibleCompanies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
           </select>
           <p v-if="errors.companyId" class="text-xs text-red-500 mt-1">{{ errors.companyId }}</p>
         </div>

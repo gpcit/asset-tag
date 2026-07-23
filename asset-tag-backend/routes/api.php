@@ -83,6 +83,7 @@ Route::middleware('auth:api')->group(function () {
         // User management
         Route::get('/users', [AuthController::class, 'index']);
         Route::patch('/users/{user}/role', [AuthController::class, 'updateRole']);
+        Route::post('/users/{user}/companies', [AuthController::class, 'updateCompanies']);
 
         // Activity logs
         Route::get('/activity-logs', [ActivityLogController::class, 'index']);

@@ -78,7 +78,13 @@ class AuthController extends Controller
 
         return response()->json([
             'token' => $token,
-            'user' => $user,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'role' => $user->role,
+                'company_ids' => $user->companies()->pluck('companies.id'),
+            ],
         ]);
     }
 
@@ -87,7 +93,15 @@ class AuthController extends Controller
     // -------------------------
     public function me()
     {
-        return auth()->user();
+        $user = auth()->user();
+
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'role' => $user->role,
+            'company_ids' => $user->companies()->pluck('companies.id'),
+        ]);
     }
 
     // -------------------------
@@ -121,12 +135,20 @@ class AuthController extends Controller
     // -------------------------
     public function index()
     {
-        return User::select('id', 'name', 'username', 'role')->get();
+        return User::with('companies:id')->get()->map(function ($u) {
+            return [
+                'id' => $u->id,
+                'name' => $u->name,
+                'username' => $u->username,
+                'role' => $u->role,
+                'company_ids' => $u->companies->pluck('id'),
+            ];
+        });
     }
 
     public function users()
     {
-        return User::select('id', 'name', 'username', 'role')->get();
+        return $this->index(); // same shape, reuse it
     }
 
     // -------------------------
@@ -167,6 +189,34 @@ class AuthController extends Controller
         ]);
 
         return response()->json(['message' => 'Role updated', 'user' => $user]);
+    }
+
+    // -------------------------
+    // ADMIN: update user's companies
+    // -------------------------
+    public function updateCompanies(Request $request, User $user)
+    {
+        $request->validate([
+            'company_ids' => 'array',
+            'company_ids.*' => 'exists:companies,id',
+        ]);
+
+        $user->companies()->sync($request->company_ids);
+
+        ActivityLog::create([
+            'user_name' => auth()->user()->name,
+            'user_role' => auth()->user()->role,
+            'action' => 'updated companies',
+            'module' => 'User',
+            'record_id' => $user->id,
+            'old_data' => null,
+            'new_data' => ['company_ids' => $request->company_ids],
+        ]);
+
+        return response()->json([
+            'message' => 'Companies updated',
+            'company_ids' => $user->companies()->pluck('companies.id'),
+        ]);
     }
 
     public function refresh()

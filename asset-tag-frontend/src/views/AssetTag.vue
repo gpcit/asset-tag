@@ -441,7 +441,8 @@ const filteredAssets = computed<Asset[]>(() => {
           (asset.category?.name ?? '').toLowerCase().includes(query) ||
           (asset.specs ?? '').toLowerCase().includes(query) ||
           (asset.asset_code?.control_number ?? '').toLowerCase().includes(query) ||
-          (asset.histories ?? []).some(h =>(h.employee?.name ?? '').toLowerCase().includes(query))
+          (asset.histories ?? []).some(h =>(h.employee?.name ?? '').toLowerCase().includes(query)) ||
+          (asset.invoice_number ?? '').toLowerCase().includes(query)
         )
       }
 
@@ -461,7 +462,7 @@ const totalPages = computed(() =>
 
 watch([selectedCategory, selectedCompany, searchQuery, statusFilter, departmentFilter], async () => {
   currentPage.value = 1
-  await userStore.fetchAssets()
+  // await userStore.fetchAssets()
 })
 
 /* ------------------

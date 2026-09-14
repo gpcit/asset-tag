@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\AssetInventory;
 use App\Models\AssetCode;
 use App\Models\ActivityLog;
+use App\Models\Companies;
 use App\Models\Employee;
 use App\Models\Department;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class AssetController extends Controller
 {
+    private const GENERAL_CODE_CUTOFF = '2026-09-14 00:00:00';
     /**
      * LIST ALL ASSETS
      */
@@ -349,29 +351,36 @@ elseif (!empty($historyRemarks) && $asset->person_in_charge_id) {
             return $existing;
         }
 
-        $companyCode = strtoupper(trim($asset->company?->code ?? 'ASSET'));
+        $rawCode = strtoupper(trim($asset->company?->code ?? 'ASSET'));
+        $companyCode = explode('-', $rawCode)[0];
+
         $categoryCode = strtoupper(
             substr(preg_replace('/[^a-zA-Z]/', '', $asset->category?->name ?? 'GEN'), 0, 3)
         );
 
-        // ✅ Count ALL assets including soft-deleted ones so we never reuse a number
+        $sisterCompanyIds = Companies::where('code', $companyCode)
+            ->orWhere('code', 'LIKE', $companyCode . '-%')
+            ->pluck('id');
+
         $sequence = AssetInventory::withTrashed()
-            ->where('company_id', $asset->company_id)
+            ->whereIn('company_id', $sisterCompanyIds)
             ->where('category_id', $asset->category_id)
+            ->where('created_at', '>=', self::GENERAL_CODE_CUTOFF)
             ->where(function ($query) use ($asset) {
                 $query->where('created_at', '<', $asset->created_at)
                     ->orWhere(function ($q) use ($asset) {
                         $q->where('created_at', $asset->created_at)
-                        ->where('id', '<=', $asset->id);
+                            ->where('id', '<=', $asset->id);
                     });
             })
             ->count();
 
-        $controlNumber = $companyCode . '-' . $categoryCode . str_pad($sequence, 5, '0', STR_PAD_LEFT);
+        $prefix = $companyCode . '-' . $categoryCode;
+        $controlNumber = $prefix . str_pad($sequence, 5, '0', STR_PAD_LEFT);
 
-        // Collision fallback — should rarely happen now
-        if (AssetCode::withTrashed()->where('control_number', $controlNumber)->exists()) {
-            $controlNumber = $companyCode . '-' . $categoryCode . '-' . str_pad($asset->id, 5, '0', STR_PAD_LEFT);
+        while (AssetCode::withTrashed()->where('control_number', $controlNumber)->exists()) {
+            $sequence++;
+            $controlNumber = $prefix . str_pad($sequence, 5, '0', STR_PAD_LEFT);
         }
 
         return AssetCode::create([

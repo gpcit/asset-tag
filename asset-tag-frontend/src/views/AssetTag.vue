@@ -134,6 +134,7 @@ const loading = ref(true)
 const employeeSearch = ref('')
 const showEmployeeList = ref(false)
 const departmentFilter = ref<number | ''>('')
+const isSubmitting = ref (false)
 
 // Separate state for history modal
 const historyEmployeeSearch = ref('')
@@ -562,11 +563,15 @@ const openEditModal = (asset: Asset) => {
  Submit
 ------------------ */
 const submitForm = async () => {
+  if (isSubmitting.value) return
+
   console.log('Submitting payload:', mapFormToPayload(form.value))
   if (!validateForm()) {
     Swal.fire('Validation Error', 'Please fix the highlighted fields.', 'error')
     return
   }
+
+  isSubmitting.value = true
 
   try {
     const payload = mapFormToPayload(form.value)
@@ -604,17 +609,19 @@ const submitForm = async () => {
         html: 'Asset has been successfully created.<br>The tag has been downloaded automatically.',
         confirmButtonText: 'Close',
         confirmButtonColor: '#059669',
-      })
+      })   
     }
   } catch (err: any) {
     Swal.fire('Error', err.response?.data?.message || 'Operation failed', 'error')
+  } finally {
+    isSubmitting.value = false
   }
 }
 
 watch(form, () => (errors.value = {}), { deep: true })
 
 /* ------------------
- Delete
+Delete
 ------------------ */
 const deleteAsset = async (asset: Asset) => {
   const res = await Swal.fire({
@@ -945,9 +952,18 @@ initData()
   </div>
 
   <!-- Create/Edit Modal -->
-  <div v-if="showCreateModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto">
-      <h2 class="text-lg font-bold mb-3">{{ isEditing ? 'Edit Asset' : 'Create New Asset' }}</h2>
+<div v-if="showCreateModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto relative">
+
+    <!-- ✅ Loading overlay -->
+    <div v-if="isSubmitting" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-xl">
+      <div class="animate-spin rounded-full h-14 w-14 border-4 border-emerald-600 border-t-transparent"></div>
+      <p class="mt-4 text-emerald-700 font-semibold">
+        {{ isEditing ? 'Updating asset...' : 'Creating asset & generating tag...' }}
+      </p>
+    </div>
+
+    <h2 class="text-lg font-bold mb-3">{{ isEditing ? 'Edit Asset' : 'Create New Asset' }}</h2>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <!-- Company -->
@@ -1035,15 +1051,20 @@ initData()
       </div>
 
       <div class="flex justify-end gap-2 mt-4">
-        <button @click="showCreateModal = false" class="px-3 py-1 bg-gray-300 rounded text-sm">Cancel</button>
+        <button @click="showCreateModal = false" :disabled="isSubmitting" class="px-3 py-1 bg-gray-300 rounded text-sm disabled:opacity-50">Cancel</button>
         <button
           @click="form.is_active = !form.is_active"
+          :disabled="isSubmitting"
           :class="form.is_active ? 'bg-emerald-600 text-white' : 'bg-red-500 text-white'"
-          class="px-4 py-1 rounded text-sm font-semibold transition">
+          class="px-4 py-1 rounded text-sm font-semibold transition disabled:opacity-50">
           {{ form.is_active ? 'Active' : 'Inactive' }}
         </button>
-        <button @click="submitForm" class="px-3 py-1 bg-emerald-600 text-white rounded text-sm">
-          {{ isEditing ? 'Update' : 'Create & Generate Tag' }}
+        <button
+          @click="submitForm"
+          :disabled="isSubmitting"
+          class="px-3 py-1 bg-emerald-600 text-white rounded text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
+          <span v-if="isSubmitting" class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+          {{ isSubmitting ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update' : 'Create & Generate Tag') }}
         </button>
       </div>
     </div>

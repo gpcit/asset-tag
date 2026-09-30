@@ -121,7 +121,7 @@ const editingAssetId = ref<number | null>(null)
 const selectedCategory = ref<number | ''>('')
 const selectedCompany = ref<number | ''>('')
 const searchQuery = ref('')
-const statusFilter = ref<'active' | 'inactive' | 'all'>('active')
+const statusFilter = ref<string>('all')
 
 const showExportModal = ref(false)
 const tagModalRef = ref<InstanceType<typeof AssetFormat> | null>(null)
@@ -442,7 +442,7 @@ const filteredAssets = computed<Asset[]>(() => {
           (asset.category?.name ?? '').toLowerCase().includes(query) ||
           (asset.specs ?? '').toLowerCase().includes(query) ||
           (asset.asset_code?.control_number ?? '').toLowerCase().includes(query) ||
-          (asset.histories ?? []).some(h =>(h.employee?.name ?? '').toLowerCase().includes(query)) ||
+          (asset.histories ?? []).some(h => (h.employee?.name ?? '').toLowerCase().includes(query)) ||
           (asset.invoice_number ?? '').toLowerCase().includes(query)
         )
       }
@@ -853,7 +853,7 @@ initData()
       <div class="mb-4">
         <label class="block text-sm font-medium mb-1">Status</label>
         <select v-model="statusFilter" class="w-full border rounded px-3 py-2 text-sm">
-          <option value="">All</option>
+          <option value="all">All</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>

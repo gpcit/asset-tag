@@ -564,15 +564,14 @@ elseif (!empty($historyRemarks) && $asset->person_in_charge_id) {
             $oldData = (array) $history;
 
             DB::table('asset_histories')
-                ->where('id', $id)
-                ->update([
-                    'employee_id'   => $data['employee_id']   ?? $history->employee_id,
-                    // 'department'    => $data['department']    ?? $history->department,
-                    'date_deployed' => $data['date_deployed'] ?? $history->date_deployed,
-                    'date_returned' => $data['date_returned'] ?? $history->date_returned,
-                    'remarks'       => $data['remarks']       ?? $history->remarks,
-                    'updated_at'    => now(),
-                ]);
+            ->where('id', $id)
+            ->update([
+                'employee_id'   => array_key_exists('employee_id', $data)   ? $data['employee_id']   : $history->employee_id,
+                'date_deployed' => array_key_exists('date_deployed', $data) ? $data['date_deployed'] : $history->date_deployed,
+                'date_returned' => array_key_exists('date_returned', $data) ? $data['date_returned'] : $history->date_returned,
+                'remarks'       => array_key_exists('remarks', $data)       ? $data['remarks']       : $history->remarks,
+                'updated_at'    => now(),
+            ]);
 
             $updatedHistory = DB::table('asset_histories')->where('id', $id)->first();
 

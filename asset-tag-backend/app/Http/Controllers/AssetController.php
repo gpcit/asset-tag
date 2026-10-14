@@ -135,13 +135,13 @@ class AssetController extends Controller
             'is_active'           => 'nullable|boolean',
         ]);
 
-        // ✅ If department_id is provided, sync the department name string column
+        // If department_id is provided, sync the department name string column
         // if (!empty($data['department_id'])) {
         //     $dept = Department::find($data['department_id']);
         //     $data['department'] = $dept?->name;
         // }
 
-        // ✅ If employee is assigned
+        // If employee is assigned
         if (!empty($data['person_in_charge_id'])) {
             $employee = Employee::find($data['person_in_charge_id']);
 
@@ -233,7 +233,7 @@ if ($request->filled('date_returned')) {
     $data['person_in_charge_id'] = null;
     $data['person_in_charge']    = null;
     $data['date_deployed']       = null;
-    // ✅ removed $data['remarks'] = null — asset remarks stays untouched
+    // removed $data['remarks'] = null — asset remarks stays untouched
 }
     /**
      * 2. HANDLE NEW ASSIGNMENT (Transfer)
@@ -264,7 +264,7 @@ if ($request->filled('date_returned')) {
         $data['date_deployed']    = $data['date_deployed'] ?? now()->format('Y-m-d');
         $data['date_returned']    = null;
 
-        // ✅ Always open a fresh row for the new employee
+        // Always open a fresh row for the new employee
         DB::table('asset_histories')->insert([
             'asset_id'      => $asset->id,
             'employee_id'   => $data['person_in_charge_id'],
@@ -295,7 +295,7 @@ elseif (!empty($historyRemarks) && $asset->person_in_charge_id) {
                 'updated_at' => now(),
             ]);
     } else {
-        // ✅ No open row exists — create one (first time saving remarks)
+        // No open row exists — create one (first time saving remarks)
         DB::table('asset_histories')->insert([
             'asset_id'      => $asset->id,
             'employee_id'   => $asset->person_in_charge_id,
@@ -410,7 +410,7 @@ elseif (!empty($historyRemarks) && $asset->person_in_charge_id) {
 
     /**
      * DOWNLOAD QR TAG
-     * ✅ department handled as both string column or relationship object
+     * department handled as both string column or relationship object
      */
     public function downloadTag($control_number)
     {
@@ -422,7 +422,7 @@ elseif (!empty($historyRemarks) && $asset->person_in_charge_id) {
 
         $asset = $assetCode->asset;
 
-        // ✅ Handle department as either a string column or a relationship object
+        // Handle department as either a string column or a relationship object
         $departmentName = is_object($asset->department)
             ? ($asset->department?->name ?? 'N/A')
             : ($asset->department ?? 'N/A');

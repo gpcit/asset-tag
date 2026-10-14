@@ -307,7 +307,7 @@ const viewHistory = async (asset: any) => {
     const res = await api.get(`/assets/${asset.id}`)
     selectedAsset.value = res.data
 
-    // ✅ Find the open history row to pre-fill the remarks
+    // Find the open history row to pre-fill the remarks
     const openHistory = res.data.histories?.find(
       (h: any) => !h.date_returned && h.employee_id === res.data.person_in_charge_id
     )
@@ -422,17 +422,35 @@ const deleteHistoryEntry = async (historyId: number) => {
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
+const isFiltering = computed(() => {
+  return (
+    searchQuery.value.trim() !== '' ||
+    selectedCategory.value !== '' ||
+    selectedCompany.value !== '' ||
+    departmentFilter.value !== '' ||
+    statusFilter.value !== 'all'
+  )
+})
+
 const filteredAssets = computed<Asset[]>(() => {
   const query = searchQuery.value.trim().toLowerCase()
 
   return userStore.assets
     .filter((asset: Asset) => {
+      // 1. Status Filter
       if (statusFilter.value === 'active' && !asset.is_active) return false
       if (statusFilter.value === 'inactive' && asset.is_active) return false
-      if (selectedCategory.value !== '' && asset.category_id !== selectedCategory.value) return false
-      if (selectedCompany.value !== '' && asset.company_id !== selectedCompany.value) return false
-      if (departmentFilter.value !== '' && asset.department_id !== departmentFilter.value) return false
 
+      // 2. Category Filter (ensure loose equality comparison for string vs number IDs)
+      if (selectedCategory.value !== '' && Number(asset.category_id) !== Number(selectedCategory.value)) return false
+
+      // 3. Company Filter
+      if (selectedCompany.value !== '' && Number(asset.company_id) !== Number(selectedCompany.value)) return false
+
+      // 4. Department Filter
+      if (departmentFilter.value !== '' && Number(asset.department_id) !== Number(departmentFilter.value)) return false
+
+      // 5. Search Query
       if (query) {
         return (
           (asset.company?.name ?? '').toLowerCase().includes(query) ||
@@ -441,6 +459,8 @@ const filteredAssets = computed<Asset[]>(() => {
           ((asset as any).person_in_charge ?? '').toLowerCase().includes(query) ||
           (asset.category?.name ?? '').toLowerCase().includes(query) ||
           (asset.specs ?? '').toLowerCase().includes(query) ||
+          (asset.model_number ?? '').toLowerCase().includes(query) ||
+          (asset.supplier ?? '').toLowerCase().includes(query) ||
           (asset.asset_code?.control_number ?? '').toLowerCase().includes(query) ||
           (asset.histories ?? []).some(h => (h.employee?.name ?? '').toLowerCase().includes(query)) ||
           (asset.invoice_number ?? '').toLowerCase().includes(query)
@@ -457,9 +477,10 @@ const paginatedAssets = computed(() => {
   return filteredAssets.value.slice(start, start + itemsPerPage.value)
 })
 
-const totalPages = computed(() =>
-  Math.ceil(filteredAssets.value.length / itemsPerPage.value)
-)
+const totalPages = computed(() => {
+  const total = Math.ceil(filteredAssets.value.length / Number(itemsPerPage.value))
+  return total > 0 ? total : 1
+})
 
 watch([selectedCategory, selectedCompany, searchQuery, statusFilter, departmentFilter], async () => {
   currentPage.value = 1
@@ -786,7 +807,7 @@ const combinedHistory = computed(() => {
     date_returned: selectedAsset.value.date_returned,
     remarks: selectedAsset.value.histories?.find(
       (h: any) => !h.date_returned && h.employee_id === selectedAsset.value.person_in_charge_id
-    )?.remarks || '',   // ✅ pull remarks from the open history row
+    )?.remarks || '',   // pull remarks from the open history row
     isCurrent: true
   } : null
 
@@ -931,31 +952,50 @@ initData()
       <p v-if="filteredAssets.length === 0" class="text-center text-gray-500 mt-2 py-2">No assets found.</p>
 
       <!-- Pagination Controls -->
-      <div class="flex justify-between items-center p-2 mt-2 bg-white">
+      <div class="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 text-sm">
+  
+      <!-- Result Indicator (Displays ONLY when filtering) -->
+      <div>
+        <p v-if="isFiltering" class="text-gray-700">
+          Found <span class="font-bold text-emerald-700">{{ filteredAssets.length }}</span> 
+          {{ filteredAssets.length === 1 ? 'result' : 'results' }}
+          <span v-if="searchQuery.trim()"> for "<span class="italic">{{ searchQuery }}</span>"</span>
+        </p>
+        <p v-else class="text-gray-500">
+          Showing {{ filteredAssets.length }} total assets
+        </p>
+      </div>
+
+      <!-- Page Controls -->
+      <div class="flex items-center gap-3">
         <button
           @click="currentPage = Math.max(1, currentPage - 1)"
           :disabled="currentPage === 1"
-          class="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+          class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium"
         >
           Previous
         </button>
-        <span class="text-sm">Page {{ currentPage }} of {{ totalPages }}</span>
+
+        <span class="text-gray-600 font-medium">
+          Page {{ currentPage }} of {{ totalPages }}
+        </span>
+
         <button
           @click="currentPage = Math.min(totalPages, currentPage + 1)"
           :disabled="currentPage === totalPages"
-          class="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+          class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium"
         >
           Next
         </button>
       </div>
+
     </div>
-  </div>
 
   <!-- Create/Edit Modal -->
 <div v-if="showCreateModal" class="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
   <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-4 max-h-[90vh] overflow-y-auto relative">
 
-    <!-- ✅ Loading overlay -->
+    <!-- Loading overlay -->
     <div v-if="isSubmitting" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center rounded-xl">
       <div class="animate-spin rounded-full h-14 w-14 border-4 border-emerald-600 border-t-transparent"></div>
       <p class="mt-4 text-emerald-700 font-semibold">
@@ -1264,7 +1304,8 @@ initData()
       </div>
     </div>
   </div>
-
-  <!-- ✅ AssetFormat mounted here — tagModalRef exposes autoDownloadTag -->
+  </div>
+  </div>
+  <!--AssetFormat mounted here — tagModalRef exposes autoDownloadTag -->
   <AssetFormat ref="tagModalRef" @tagCreated="handleTagCreated" />
 </template>

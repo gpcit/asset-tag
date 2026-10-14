@@ -42,7 +42,7 @@ const loading = ref(false)
 const allAssets = ref<Asset[]>([])
 const tagModalRef = ref<InstanceType<typeof AssetFormat> | null>(null)
 
-// ✅ Export modal state
+// Export modal state
 const showExportModal = ref(false)
 const companies = ref<Company[]>([])
 const selectedCompanyIds = ref<number[]>([])
@@ -125,7 +125,7 @@ const fetchAllAssetsWithUniqueCode = async () => {
       company: asset.company || { name: '', code: '', logo: '' },
     }))
 
-    // ✅ Extract unique companies from assets
+    // Extract unique companies from assets
     const companyMap = new Map<number, Company>()
     res.data.forEach((asset: any) => {
       if (asset.company && asset.company.id) {
@@ -143,13 +143,13 @@ const fetchAllAssetsWithUniqueCode = async () => {
   }
 }
 
-// ✅ Open export modal
+// Open export modal
 const openExportModal = () => {
   selectedCompanyIds.value = companies.value.map(c => c.id) // select all by default
   showExportModal.value = true
 }
 
-// ✅ Toggle company selection
+// Toggle company selection
 const toggleCompany = (id: number) => {
   if (selectedCompanyIds.value.includes(id)) {
     selectedCompanyIds.value = selectedCompanyIds.value.filter(c => c !== id)
@@ -166,7 +166,7 @@ const deselectAll = () => {
   selectedCompanyIds.value = []
 }
 
-// ✅ Filtered assets based on selected companies
+// Filtered assets based on selected companies
 const filteredAssetsForExport = computed(() => {
   if (selectedCompanyIds.value.length === 0) return []
   return allAssets.value.filter(a => {
